@@ -112,17 +112,20 @@ export default function HistoryTable({ feeds }: HistoryTableProps) {
 
       <div className="flex flex-col gap-3 border-t border-slate-700 bg-slate-900/30 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-slate-400">
-          Para pesquisa acadêmica: o CSV inclui até 8.000 leituras brutas, com uma coluna de status.
+          Para pesquisa acadêmica: até 8.000 leituras, com coluna de status.{" "}
+          <a href="/dashboard/export?formato=padrao" download className="text-cyan-400 underline-offset-2 hover:underline">
+            CSV padrão (Python/R)
+          </a>
         </p>
         <a
           href="/dashboard/export"
           download
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-600 bg-slate-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-600"
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-600 bg-slate-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-600"
         >
           <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12m0 0-4-4m4 4 4-4M4 20h16" />
           </svg>
-          Baixar Histórico (CSV)
+          Baixar Histórico (Excel)
         </a>
       </div>
     </section>

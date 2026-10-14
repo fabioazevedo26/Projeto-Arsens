@@ -177,10 +177,17 @@ Mapeamento dos campos do ThingSpeak:
       Desligada, elas aparecem apagadas com a etiqueta amarela "Erro".
 
 5.7 Exportação CSV (src/app/dashboard/export/route.ts)
-    O botão "Baixar Histórico (CSV)" baixa até 8.000 leituras brutas do ThingSpeak, para uso
-    em pesquisas acadêmicas. Colunas:
-      data_hora_utc, data_hora_manaus, co_ppm, temperatura_c, umidade_pct, status
-    O status vale "ok", "erro" ou "simulacao", permitindo filtrar os dados na análise.
+    Baixa até 8.000 leituras do ThingSpeak, para uso em pesquisas acadêmicas, em dois formatos:
+
+    a) "Baixar Histórico (Excel)" — padrão brasileiro: colunas separadas por ";" e decimais
+       com vírgula, que é o que o Excel em português espera (abre direto em colunas).
+       Colunas: Data; Hora; CO (ppm); Temperatura (°C); Umidade (%); Status
+       Valores com 2 casas decimais, horário de Manaus e status OK / Erro / Simulação.
+       Nas linhas de simulação o CO fica vazio (999,90 é o botão de teste, não uma medição).
+
+    b) "CSV padrão (Python/R)" — padrão internacional (",", decimal ".") com os dados brutos:
+       data_hora_utc, data_hora_manaus, co_ppm, temperatura_c, umidade_pct, status
+
     A rota fica dentro de /dashboard, então também exige login.
 
 
