@@ -1,0 +1,293 @@
+#include <WiFi.h>
+#include <WebServer.h>
+#include <WiFiManager.h>
+#include <Wire.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BME280.h>
+#include <WiFiClientSecure.h>
+#include <UniversalTelegramBot.h>
+#include <ArduinoJson.h>
+#include <ThingSpeak.h> 
+ 
+// --- MAPEAMENTO DE PINOS (ATUALIZADO) ---
+#define PINO_MOSFET 32     // Gate do IRLZ44N (Suporta PWM para gerar os 1.4V)
+#define MQ7_ANALOG 34      // Ligado ao divisor de tensão (10k/20k) do A0 do MQ-7
+#define PINO_TESTE 25      // Módulo Botão KY-004 (Pino S). Usa INPUT_PULLUP.
+ 
+// --- CONFIGURAÇÃO DO TELEGRAM ---
+#define TELEGRAM_BOT_TOKEN "SEU_TOKEN_DO_BOT_AQUI"
+#define CHAT_ID "SEU_CHAT_ID_AQUI"
+#define LIMITE_MAX_PPM 50.0  // Nível considerado perigoso (Ex: 50 PPM)
+ 
+// --- CONFIGURAÇÃO DO THINGSPEAK ---
+unsigned long myChannelNumber = 3387680;          // <-- SUBSTITUA PELO ID DO SEU CANAL
+const char * myWriteAPIKey = "SUA_WRITE_API_KEY_AQUI"; // <-- SUBSTITUA PELA SUA WRITE API KEY
+ 
+WiFiClientSecure clientSSL;
+WiFiClient clientTS; 
+UniversalTelegramBot bot(TELEGRAM_BOT_TOKEN, clientSSL);
+ 
+Adafruit_BME280 bme;
+WebServer server(80);
+ 
+// --- VARIÁVEIS GLOBAIS ---
+float ppm_final = 0;
+float umidade_atual = 72.0; 
+float temp_atual = 0;
+String status_fase = "Iniciando...";
+unsigned long tempoReferencia = 0;
+unsigned long tempoBME = 0; 
+int fase = 1; 
+ 
+// Controle de alertas do Telegram
+bool alertaEnviado = false; 
+bool dispararAlerta = false;
+bool dispararNormalizado = false;
+ 
+// --- DASHBOARD HTML PROFISSIONAL ---
+void handleRoot() {
+  String html = "<!DOCTYPE html><html lang='pt-BR'><head><meta charset='UTF-8'>";
+  html += "<meta name='viewport' content='width=device-width, initial-scale=1.0'>";
+  html += "<title>Painel de Controle - Telemetria CO</title>";
+  html += "<style>";
+  html += "* { box-sizing: border-box; margin: 0; padding: 0; }";
+  html += "body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; padding: 30px; line-height: 1.6; }";
+  html += ".container { max-width: 1400px; margin: 0 auto; }"; 
+  html += "header { text-align: center; margin-bottom: 40px; padding-bottom: 25px; border-bottom: 1px solid #334155; }";
+  html += "header h1 { font-size: 32px; color: #38bdf8; font-weight: 600; }"; 
+  html += "header p { font-size: 16px; color: #94a3b8; margin-top: 8px; }"; 
+  html += ".grid { display: grid; grid-template-columns: 1fr; gap: 30px; }";
+  html += "@media(min-width: 992px) { .grid { grid-template-columns: 1.2fr 1fr; } }"; 
+  html += ".card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 35px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); }";
+  html += ".main-card { text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 450px; }";
+  html += ".badge { display: inline-block; padding: 8px 16px; background: #334155; color: #38bdf8; border-radius: 20px; font-size: 15px; font-weight: 600; margin-bottom: 25px; text-transform: uppercase; letter-spacing: 0.5px; }";
+  html += ".ppm-display { font-size: 96px; font-weight: 800; color: #f43f5e; line-height: 1; margin: 15px 0; font-feature-settings: 'tnum'; }"; 
+  html += ".ppm-unit { font-size: 24px; color: #94a3b8; font-weight: 400; margin-left: 8px; }";
+  html += ".env-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; margin-top: auto; padding-top: 20px; }";
+  html += ".env-item { background: #0f172a; padding: 18px; border-radius: 12px; text-align: center; border: 1px solid #334155; }";
+  html += ".env-label { font-size: 14px; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px; }";
+  html += ".env-value { font-size: 22px; font-weight: 600; color: #22c55e; }"; 
+  html += ".info-card h2 { font-size: 22px; color: #38bdf8; margin-bottom: 20px; font-weight: 600; border-bottom: 1px solid #334155; padding-bottom: 12px; }";
+  html += ".info-card p { font-size: 15px; color: #cbd5e1; margin-bottom: 16px; text-align: justify; }"; 
+  html += "code { background: #0f172a; padding: 3px 8px; border-radius: 4px; color: #f43f5e; font-family: monospace; font-size: 14px; font-weight: 600; }";
+  html += ".formula { background: #0f172a; padding: 14px; border-radius: 8px; font-family: monospace; font-size: 14px; color: #38bdf8; border-left: 4px solid #38bdf8; margin: 15px 0; overflow-x: auto; font-weight: 600; }"; 
+  html += "footer { text-align: center; margin-top: 50px; font-size: 14px; color: #64748b; border-top: 1px solid #232e42; padding-top: 20px; }";
+  html += "</style>";
+  html += "<script>setInterval(function(){ location.reload(); }, 5000);</script>";
+  html += "</head><body>";
+ 
+  html += "<div class='container'>";
+  html += "<header><h1>Sistema de Monitoramento de CO</h1><p>Estação Remota de Telemetria — Manaus-AM</p></header>";
+  
+  html += "<div class='grid'>";
+  // Card Principal (Esquerda)
+  html += "<div class='card main-card'>";
+  html += "<div class='badge'>" + status_fase + "</div>";
+  html += "<div class='ppm-display'>" + String(ppm_final, 1) + "<span class='ppm-unit'>PPM</span></div>";
+  
+  html += "<div class='env-grid'>";
+  html += "<div class='env-item'><div class='env-label'>💧 Umidade</div><div class='env-value'>" + String(umidade_atual, 1) + "%</div></div>";
+  html += "<div class='env-item'><div class='env-label'>🌡️ Temperatura</div><div class='env-value'>" + String(temp_atual, 1) + "°C</div></div>";
+  html += "</div>";
+  html += "</div>";
+ 
+  // Card Informativo / Cálculo (Direita)
+  html += "<div class='card info-card'>";
+  html += "<h2>Como o PPM é calculado?</h2>";
+  html += "<p>O sensor MQ-7 altera sua resistência interna baseado na concentração de Monóxido de Carbono (CO). O ESP32 realiza a leitura e processa os dados em 3 etapas essenciais:</p>";
+  
+  html += "<p><strong>1. Amostragem do ADC:</strong> É calculada a média aritmética de 20 leituras analógicas contínuas realizadas no divisor de tensão do pino <code>" + String(MQ7_ANALOG) + "</code>.</p>";
+  
+  html += "<p><strong>2. Fator de Correção Climática:</strong> Sensores de gás semicondutores sofrem forte influência das condições ambientais. Como Manaus apresenta níveis elevados de umidade, aplicamos uma curva de compensação dinâmica utilizando os dados em tempo real do sensor BME280 (tendo como linha de base 33% de umidade relativa):</p>";
+  html += "<div class='formula'>fatorUmidade = 1.0 + (Umidade - 33.0) * 0.0047</div>";
+  
+  html += "<p><strong>3. Conversão Final:</strong> Mapeamos a proporção do valor discretizado do ADC para a escala nominal, dividindo o resultado pelo fator de correção climático:</p>";
+  html += "<div class='formula'>PPM = (Média_ADC / 4095.0) * 500 / fatorUmidade</div>";
+  html += "</div>";
+  html += "</div>"; // Fim da Grid
+  
+  html += "<footer>Dispositivo operando via WebServer ESP32 | Limiar de Alerta de Segurança: " + String(LIMITE_MAX_PPM, 0) + " PPM</footer>";
+  html += "</div>"; // Fim do Container
+  html += "</body></html>";
+ 
+  server.send(200, "text/html", html);
+}
+ 
+// --- FUNÇÃO AUXILIAR PARA ENVIO AO THINGSPEAK ---
+void enviarAoThingSpeak() {
+  ThingSpeak.setField(1, ppm_final);
+  ThingSpeak.setField(2, temp_atual);
+  ThingSpeak.setField(3, umidade_atual);
+ 
+  int codigoResposta = ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
+  
+  if(codigoResposta == 200){
+   Serial.println("[THINGSPEAK] Dados enviados com sucesso!");
+  }
+  else{
+    Serial.println("[THINGSPEAK] Erro no envio. Código HTTP: " + String(codigoResposta));
+  }
+}
+ 
+void setup() {
+  Serial.begin(115200);
+ 
+  // Configuração do MOSFET para o MQ-7
+  pinMode(PINO_MOSFET, OUTPUT);
+  digitalWrite(PINO_MOSFET, LOW); 
+ 
+  // Configuração obrigatória com PULLUP para o Botão KY-004
+  pinMode(PINO_TESTE, INPUT_PULLUP); 
+ 
+  analogSetAttenuation(ADC_0db); 
+ 
+  WiFiManager wm;
+  wm.setConfigPortalTimeout(180); 
+  if(!wm.autoConnect("ESP32_Monitor_CO")) {
+      Serial.println("Timeout na configuração. Reiniciando...");
+      delay(3000);
+      ESP.restart();
+  }
+  Serial.println("Conectado! IP: " + WiFi.localIP().toString());
+ 
+  clientSSL.setInsecure();
+  ThingSpeak.begin(clientTS); 
+ 
+  Wire.begin(); 
+ 
+  if (!bme.begin(0x76)) {
+      Serial.println("Erro: BME280 não detectado! Verifique fiação I2C.");
+  } else {
+     Serial.println("BME280 detectado com sucesso!");
+  }
+ 
+  server.on("/", handleRoot);
+  server.begin();
+  
+  delay(2000); 
+  tempoReferencia = millis();
+  tempoBME = millis();
+}
+ 
+void loop() {
+  server.handleClient(); 
+ 
+  unsigned long tempoAtual = millis();
+ 
+  // --- LEITURA CONSTANTE DO BME280 (A cada 2 segundos) ---
+  if (tempoAtual - tempoBME >= 2000) {
+    float t = bme.readTemperature();
+    float h = bme.readHumidity();
+    
+    if (!isnan(t) && !isnan(h) && h > 0.0) {
+      temp_atual = t;
+      umidade_atual = h;
+    } else {
+      Wire.begin();
+    }
+    tempoBME = tempoAtual;
+  }
+ 
+  // --- CONTROLE DOS CICLOS DO MQ-7 VIA MOSFET (PWM) ---
+  if (fase == 1) {
+    status_fase = "Aquecendo Sensor (5V)";
+    // Sinal máximo (255) libera 5V integrais para a resistência do MQ-7
+    analogWrite(PINO_MOSFET, 255); 
+    
+    if (tempoAtual - tempoReferencia >= 60000) {
+      fase = 2;
+      tempoReferencia = tempoAtual;
+    }
+  } 
+  else if (fase == 2) {
+    status_fase = "Estabilizando (1.4V)";
+    // Sinal PWM (71 de 255) rebaixa a tensão efetiva para ~1.4V para a fase de leitura
+    analogWrite(PINO_MOSFET, 71); 
+ 
+    if (tempoAtual - tempoReferencia >= 85000 && tempoAtual - tempoReferencia < 86000) {
+       long somaRaw = 0;
+       for(int i=0; i<20; i++) {
+         somaRaw += analogRead(MQ7_ANALOG);
+         delay(10);
+       }
+       
+       float rawMedia = somaRaw / 20.0;
+       Serial.printf("\n[DEBUG] Bruto Lido no ADC (0-4095): %.1f\n", rawMedia);
+ 
+       float fatorUmidade = 1.0 + (umidade_atual - 33.0) * 0.0047;
+       if (fatorUmidade <= 0) fatorUmidade = 1.0; 
+       
+       ppm_final = (rawMedia / 4095.0) * 500 / fatorUmidade;
+       if (ppm_final < 0) ppm_final = 0;
+ 
+       Serial.printf("Leitura Concluída: PPM=%.2f | Umi=%.1f%%\n", ppm_final, umidade_atual);
+ 
+       enviarAoThingSpeak(); 
+ 
+       // --- ANÁLISE DE ALERTAS DO SENSOR REAL ---
+       if (ppm_final >= LIMITE_MAX_PPM && !alertaEnviado) {
+          dispararAlerta = true;
+       } 
+       else if (ppm_final < (LIMITE_MAX_PPM - 5.0) && alertaEnviado && digitalRead(PINO_TESTE) == HIGH) {
+          dispararNormalizado = true;
+       }
+    }
+ 
+    if (tempoAtual - tempoReferencia >= 90000) {
+      fase = 1;
+      tempoReferencia = tempoAtual;
+    }
+  }
+ 
+  // --- VERIFICAÇÃO DO BOTÃO DE TESTE ---
+  if (digitalRead(PINO_TESTE) == LOW && !alertaEnviado) {
+    status_fase = "[MODO DE TESTE ATIVO]";
+    ppm_final = 999.9; 
+    dispararAlerta = true;
+    
+    static unsigned long ultimoEnvioTeste = 0;
+    if (millis() - ultimoEnvioTeste > 15000) { 
+      enviarAoThingSpeak();
+      ultimoEnvioTeste = millis();
+    }
+  } 
+  else if (digitalRead(PINO_TESTE) == HIGH && alertaEnviado && ppm_final < (LIMITE_MAX_PPM - 5.0)) {
+    static unsigned long debounceBotao = 0;
+    if (millis() - debounceBotao > 1000) { 
+      dispararNormalizado = true;
+      debounceBotao = millis();
+    }
+  }
+ 
+  // --- PROCESSAMENTO ASSÍNCRONO DO TELEGRAM ---
+  if (dispararAlerta) {
+    dispararAlerta = false; 
+    String mensajeAlerta = "⚠️ *ALERTA DE PERIGO (SIMULAÇÃO)!*⚠️\n\n";
+    mensajeAlerta += "Níveis perigosos de Monóxido de Carbono (CO) detectados!\n";
+    mensajeAlerta += "*Concentração:* " + String(ppm_final, 1) + " PPM\n";
+    mensajeAlerta += "*Umidade:* " + String(umidade_atual, 1) + "%\n";
+    mensajeAlerta += "*Temperatura:* " + String(temp_atual, 1) + "°C\n\n";
+    mensajeAlerta += "Por favor, ventile o ambiente imediatamente!";
+    
+    if(bot.sendMessage(CHAT_ID, mensajeAlerta, "Markdown")) {
+      Serial.println("[TELEGRAM] Alerta enviado com sucesso!");
+      alertaEnviado = true;
+    } else {
+      Serial.println("[TELEGRAM] Falha ao enviar alerta.");
+    }
+  }
+ 
+  if (dispararNormalizado) {
+    dispararNormalizado = false; 
+    String mensagemNormalizado = "✅ *Nível de CO Normalizado (SIMULAÇÃO)* ✅\n\n";
+    mensagemNormalizado += "O nível de Monóxido de Carbono baixou para níveis seguros.\n";
+    mensagemNormalizado += "*Concentração Atual:* " + String(ppm_final, 1) + " PPM";
+    
+    if(bot.sendMessage(CHAT_ID, mensagemNormalizado, "Markdown")) {
+      Serial.println("[TELEGRAM] Aviso de normalização enviado!");
+      alertaEnviado = false;
+    } else {
+      Serial.println("[TELEGRAM] Falha ao enviar aviso de normalização.");
+    }
+  }
+}

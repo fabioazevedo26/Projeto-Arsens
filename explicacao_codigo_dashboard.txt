@@ -1,0 +1,245 @@
+DOCUMENTAÇÃO E EXPLICAÇÃO DO CÓDIGO - PAINEL IOT ARSENS (NEXT.JS + THINGSPEAK)
+==============================================================================
+
+Este arquivo explica o funcionamento de cada parte principal do projeto ARSENS, um painel
+web de monitoramento de Monóxido de Carbono (CO), Temperatura e Umidade em tempo real.
+
+- Local de medição: parada de ônibus "Atlantic Tower C/B", Av. Djalma Batista, Manaus/AM
+  (coordenadas -3.10042, -60.02397 — via de alto tráfego).
+- Hardware: ESP32 + sensor MQ-7 (CO) + sensor BME280 (temperatura e umidade).
+- Nuvem: o ESP32 envia as leituras para o canal 3387680 do ThingSpeak.
+- Painel: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4 e Recharts 3.
+
+
+0. ESTRUTURA DE ARQUIVOS
+------------------------
+src/
+  middleware.ts                 -> Protege as rotas (exige login).
+  app/
+    layout.tsx                  -> Layout raiz: fonte Inter, idioma pt-BR, título da aba.
+    globals.css                 -> Tema escuro padrão (fundo slate-900) e fonte.
+    actions.ts                  -> Server Actions de login e logout.
+    login/page.tsx              -> Tela de login.
+    sobre/page.tsx              -> Página "Sobre" o projeto.
+    dashboard/
+      page.tsx                  -> Página principal do painel (Server Component).
+      RefreshButton.tsx         -> Botão de atualizar + auto-refresh a cada 15 s (Client).
+      export/route.ts           -> Rota que gera o arquivo CSV para download.
+  components/
+    DashboardHeader.tsx         -> Cabeçalho: logo, status "Ao vivo", Telegram, atualizar, sair.
+    CoCard.tsx                  -> Card principal do Nível de CO (semáforo, tendência, simulação).
+    MetricCard.tsx              -> Cards menores de Temperatura e Umidade.
+    ChartComponent.tsx          -> Gráfico de linhas das últimas 24 h (Client, Recharts).
+    LocationMap.tsx             -> Mini-mapa com o ponto de coleta (OpenStreetMap).
+    HistoryTable.tsx            -> Tabela das últimas 20 leituras + botão de CSV (Client).
+  lib/
+    co.ts                       -> Regras do CO: faixas do semáforo, simulação, leitura inválida.
+    feed.ts                     -> Tipos dos dados e regra de status de cada linha.
+    thingspeak.ts               -> Busca no ThingSpeak e cálculo das médias do gráfico.
+
+
+1. ARQUITETURA E SEGURANÇA
+--------------------------
+Como o painel não possui um banco de dados tradicional (SQL/NoSQL), usamos "Variáveis de
+Ambiente" (.env.local no computador, ou o painel de variáveis da Vercel em produção) para
+armazenar informações sensíveis.
+
+Variáveis utilizadas:
+- THINGSPEAK_CHANNEL_ID      -> ID do canal no ThingSpeak (3387680).
+- THINGSPEAK_READ_API_KEY    -> Chave de LEITURA do canal (o canal é privado).
+- ADMIN_USER / ADMIN_PASS    -> Usuário e senha da tela de login.
+- TELEGRAM_BOT_URL           -> Link do bot de alertas (https://t.me/MonitorCOESP32_789_bot).
+
+Essas variáveis são lidas apenas no servidor e nunca são enviadas ao navegador. O arquivo
+.env.local NÃO vai para o GitHub (o .gitignore ignora arquivos .env*).
+
+Importante: o painel usa somente a Read API Key. A Write API Key fica apenas no firmware do
+ESP32 e nunca deve ser colocada no painel nem divulgada.
+
+Separação Server x Client Components:
+- Server Components (page.tsx, CoCard, MetricCard, LocationMap, DashboardHeader) rodam no
+  servidor: buscam os dados e entregam o HTML pronto, sem enviar JavaScript extra.
+- Client Components (marcados com "use client": ChartComponent, HistoryTable, RefreshButton)
+  rodam no navegador porque precisam de interatividade (gráfico, chave liga/desliga, timer).
+- O código que lê as chaves (lib/thingspeak.ts) só é importado por arquivos de servidor. Os
+  componentes do navegador importam apenas lib/feed.ts e lib/co.ts, que não têm segredos.
+
+
+2. FLUXO DE AUTENTICAÇÃO (LOGIN)
+--------------------------------
+- Arquivo: src/app/login/page.tsx
+- Arquivo: src/app/actions.ts
+- Arquivo: src/middleware.ts
+
+* Como funciona:
+Quando você acessa o site, o Next.js carrega o "middleware.ts". O papel do middleware é
+interceptar as requisições. Se você tentar acessar "/dashboard" (ou qualquer sub-rota, como
+"/dashboard/export") sem um "cookie" de sessão válido, ele te redireciona para "/login".
+
+Na tela de login você digita usuário e senha. Ao clicar em "Entrar no Painel", os dados são
+enviados para o "actions.ts" (via Server Actions).
+
+O "actions.ts" compara o que foi digitado com ADMIN_USER e ADMIN_PASS. Se bater, cria um
+cookie seguro (httpOnly, válido por 1 dia) chamado "session" e redireciona para o Dashboard.
+Se não bater, mostra "Credenciais inválidas. Tente novamente.". O botão "Sair" apaga o cookie.
+
+
+3. O DASHBOARD E O THINGSPEAK
+-----------------------------
+- Arquivo: src/app/dashboard/page.tsx
+- Arquivo: src/lib/thingspeak.ts
+
+* Como funciona:
+A página principal é um "Server Component": carrega os dados ANTES de enviar o HTML pronto.
+
+Ao ser acessada, a função "getDashboardData()" faz DUAS requisições ao ThingSpeak ao mesmo
+tempo (em paralelo):
+  a) As últimas 20 leituras -> usadas nos cards e na tabela.
+  b) As leituras das últimas 24 horas -> usadas no gráfico.
+
+Ambas usam 'cache: "no-store"', ou seja, o Next.js NUNCA guarda esses dados em cache: toda
+atualização busca os dados MAIS RECENTES do ThingSpeak.
+
+Mapeamento dos campos do ThingSpeak:
+- field1     -> Nível de CO (PPM)
+- field2     -> Temperatura (°C)
+- field3     -> Umidade (%)
+- created_at -> Data/hora do registro (convertida para o fuso "America/Manaus").
+
+
+4. REGRAS DE NEGÓCIO DOS DADOS
+------------------------------
+- Arquivo: src/lib/co.ts
+- Arquivo: src/lib/feed.ts
+
+4.1 Semáforo de Saúde do CO (faixas inspiradas nos padrões da EPA dos EUA para CO:
+    9 ppm em média de 8 h e 35 ppm em média de 1 h):
+    - Normal   (0 a 9 PPM)    -> ciano     (text-cyan-400)
+    - Atenção  (10 a 35 PPM)  -> amarelo   (text-yellow-400)
+    - Risco    (36 a 100 PPM) -> laranja   (text-orange-500)
+    - Perigo   (acima de 100) -> vermelho piscando (text-red-500 + animate-pulse)
+    - Simulação               -> roxo      (purple)
+
+4.2 Modo Simulação (demonstração para a banca):
+    O ESP32 envia o valor 999.90 quando o botão físico de teste é pressionado. Qualquer valor
+    de CO maior ou igual a 999 é tratado como simulação:
+    - No card de CO, o número é escondido ("---") e aparece a etiqueta roxa brilhante
+      "Modo Simulação Ativo".
+    - Na tabela, a linha recebe a etiqueta "Simulação".
+    - No gráfico, o valor é ignorado para não distorcer a escala.
+
+4.3 Leituras com erro:
+    Valor 0.00 (ou vazio) em qualquer campo é considerado falha do sensor. A linha recebe o
+    status "erro". Esses valores não entram nas médias do gráfico e podem ser ocultados na
+    tabela.
+
+
+5. COMPONENTES DA TELA
+----------------------
+
+5.1 Cabeçalho (src/components/DashboardHeader.tsx)
+    - Logo e nome ARSENS.
+    - Status de conexão: "Ao vivo" (ponto verde piscando) quando a última leitura tem menos de
+      5 minutos; caso contrário, "Offline · há X min/h", indicando que o ESP32 parou de enviar.
+    - Botão "Receber Alertas no Telegram", que abre o bot em nova aba.
+    - Botões "Atualizar" e "Sair". Em telas pequenas os textos somem e ficam só os ícones.
+
+5.2 Card de Nível de CO (src/components/CoCard.tsx)
+    - Valor atual grande, com a cor do semáforo e etiqueta do nível (Normal, Atenção...).
+    - Ícone "i": ao passar o mouse (ou focar pelo teclado) mostra uma explicação sobre o
+      Índice de Qualidade do Ar e o aviso de que o MQ-7 dá leituras indicativas.
+    - Seta de tendência: compara com a última leitura válida anterior.
+      Vermelha para cima = o CO subiu; verde para baixo = o CO caiu.
+    - Lógica do Modo Simulação (item 4.2).
+
+5.3 Cards de Temperatura e Umidade (src/components/MetricCard.tsx)
+    Cards menores. Temperatura em rosa e umidade em índigo — cores escolhidas de propósito
+    para não se confundirem com as cores de alerta do semáforo.
+
+5.4 Gráfico das últimas 24 h (src/components/ChartComponent.tsx)
+    - Mostra CO, Temperatura e Umidade juntos. O CO usa o eixo da esquerda (ppm); temperatura e
+      umidade usam o eixo da direita (0 a 100).
+    - Para ficar leve, o servidor calcula a MÉDIA de cada janela de 10 minutos (no máximo
+      144 pontos por dia) em vez de enviar milhares de leituras ao navegador.
+    - Períodos em que o sensor ficou sem enviar dados aparecem como LACUNA (a linha é
+      interrompida), em vez de "ligar os pontos" e inventar medições.
+    - A legenda é clicável: cada série pode ser ligada/desligada.
+
+5.5 Mapa do ponto de coleta (src/components/LocationMap.tsx)
+    Mini-mapa do OpenStreetMap (gratuito, sem chave de API) com um pino na parada Atlantic
+    Tower C/B. Recebe um filtro CSS para combinar com o tema escuro. O mapa é estático, para
+    a rolagem da página não virar zoom; o link "Abrir mapa" abre a versão interativa.
+
+5.6 Tabela de histórico (src/components/HistoryTable.tsx)
+    - Lista as últimas 20 leituras com Data/Hora, CO, Temperatura, Umidade e Status.
+    - O valor de CO de cada linha usa a cor do semáforo.
+    - Chave "Ocultar leituras com erro" (ligada por padrão): esconde as linhas com 0.00.
+      Desligada, elas aparecem apagadas com a etiqueta amarela "Erro".
+
+5.7 Exportação CSV (src/app/dashboard/export/route.ts)
+    O botão "Baixar Histórico (CSV)" baixa até 8.000 leituras brutas do ThingSpeak, para uso
+    em pesquisas acadêmicas. Colunas:
+      data_hora_utc, data_hora_manaus, co_ppm, temperatura_c, umidade_pct, status
+    O status vale "ok", "erro" ou "simulacao", permitindo filtrar os dados na análise.
+    A rota fica dentro de /dashboard, então também exige login.
+
+
+6. ATUALIZAÇÃO DOS DADOS (MANUAL E AUTOMÁTICA)
+----------------------------------------------
+- Arquivo: src/app/dashboard/RefreshButton.tsx
+
+* Como funciona:
+O componente usa a função "router.refresh()" do Next.js, que pede ao servidor para rodar de
+novo a busca no ThingSpeak e atualizar a página SEM recarregá-la (sem piscar a tela e sem
+perder o estado, como a chave da tabela ou as séries escolhidas no gráfico).
+
+- Automática: um "useEffect" cria um timer que chama router.refresh() a cada 15 segundos.
+  Para economizar requisições, a atualização só acontece com a aba visível.
+- Manual: o botão "Atualizar" faz o mesmo na hora; o ícone gira enquanto a atualização ocorre.
+
+
+7. DESIGN E ESTILOS (TAILWIND CSS)
+----------------------------------
+Toda a parte visual é feita com Tailwind CSS, colocando as classes direto no className.
+
+Identidade visual ("Central de Comando / Telemetria"):
+- Fundo slate-900, cards em slate-800 com bordas slate-700.
+- Fonte Inter, com hierarquia forte: rótulos pequenos em cinza claro e valores grandes em
+  negrito.
+- Layout responsivo: os cards se reorganizam em 1, 2 ou 4 colunas conforme a largura da
+  tela; gráfico e mapa ficam lado a lado no computador e empilhados no celular; a tabela
+  rola na horizontal em telas estreitas.
+
+
+8. COMO RODAR LOCALMENTE
+------------------------
+1. Instalar o Node.js (versão LTS).
+2. Criar o arquivo .env.local na raiz do projeto com as variáveis do item 1.
+3. No terminal, dentro da pasta do projeto:
+     npm install
+     npm run dev
+4. Abrir http://localhost:3000 e entrar com ADMIN_USER e ADMIN_PASS.
+
+Em produção (Vercel), cadastre as mesmas variáveis em Settings > Environment Variables,
+usando uma senha forte (diferente da usada nos testes locais).
+
+
+9. PONTOS DE ATENÇÃO E MELHORIAS FUTURAS
+----------------------------------------
+- Calibração do MQ-7: leituras na casa de centenas de ppm em via pública indicam necessidade
+  de calibrar o sensor (pré-aquecimento e ajuste da curva). Os valores são indicativos, não
+  certificados.
+- O Next.js 16 avisa que o arquivo "middleware.ts" foi renomeado para "proxy.ts". O código
+  atual ainda funciona, mas a migração é recomendada.
+- O "npm run lint" aponta um uso de "any" em src/app/actions.ts (tipagem a melhorar).
+
+
+RESUMO DO FLUXO
+---------------
+1. O ESP32 mede CO, temperatura e umidade e envia ao ThingSpeak.
+2. Você digita a senha; o actions.ts valida e cria um cookie.
+3. O middleware.ts deixa você entrar no /dashboard.
+4. O dashboard/page.tsx busca no ThingSpeak, no servidor, as últimas 20 leituras e as 24 h.
+5. As regras (semáforo, simulação, erro) são aplicadas e a tela é montada.
+6. A cada 15 s a página se atualiza sozinha, sem recarregar.
+7. Pesquisadores podem baixar o histórico completo em CSV.
