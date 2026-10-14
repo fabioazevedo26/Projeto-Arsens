@@ -179,11 +179,15 @@ Mapeamento dos campos do ThingSpeak:
 5.7 Exportação CSV (src/app/dashboard/export/route.ts)
     Baixa até 8.000 leituras do ThingSpeak, para uso em pesquisas acadêmicas, em dois formatos:
 
-    a) "Baixar Histórico (Excel)" — padrão brasileiro: colunas separadas por ";" e decimais
-       com vírgula, que é o que o Excel em português espera (abre direto em colunas).
-       Colunas: Data; Hora; CO (ppm); Temperatura (°C); Umidade (%); Status
-       Valores com 2 casas decimais, horário de Manaus e status OK / Erro / Simulação.
-       Nas linhas de simulação o CO fica vazio (999,90 é o botão de teste, não uma medição).
+    a) "Baixar Histórico (.xlsx)" — planilha do Excel gerada com a biblioteca "exceljs":
+       - Colunas: Data | Hora | CO (ppm) | Temperatura (°C) | Umidade (%) | Status
+       - Larguras de coluna ajustadas, cabeçalho destacado e fixo ao rolar, e filtros prontos.
+       - Datas e números são valores reais (não texto): dá para ordenar, filtrar e fazer
+         gráficos direto no Excel. Horário de Manaus (UTC-4), 2 casas decimais.
+       - Linhas de Erro ficam em amarelo claro e de Simulação em lilás. Nelas, o valor
+         inválido fica em branco (999,90 é o botão de teste, não uma medição).
+       - Uma segunda aba, "Sobre os dados", traz local, sensores, fuso e o significado dos
+         status — útil para citar os dados em trabalhos acadêmicos.
 
     b) "CSV padrão (Python/R)" — padrão internacional (",", decimal ".") com os dados brutos:
        data_hora_utc, data_hora_manaus, co_ppm, temperatura_c, umidade_pct, status
