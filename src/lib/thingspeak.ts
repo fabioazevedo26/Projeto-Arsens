@@ -12,10 +12,14 @@ interface ThingSpeakResponse {
 
 // Busca leituras do canal em ordem cronológica (mais antiga primeiro).
 export async function fetchFeeds(params: Record<string, string>): Promise<Feed[] | null> {
-  const channelId = process.env.THINGSPEAK_CHANNEL_ID;
-  const apiKey = process.env.THINGSPEAK_READ_API_KEY;
+  // trim(): evita falhas por espaços/quebras de linha coladas junto no painel da Vercel
+  const channelId = process.env.THINGSPEAK_CHANNEL_ID?.trim();
+  const apiKey = process.env.THINGSPEAK_READ_API_KEY?.trim();
 
-  if (!channelId) return null;
+  if (!channelId) {
+    console.error("THINGSPEAK_CHANNEL_ID não configurado.");
+    return null;
+  }
 
   const query = new URLSearchParams(params);
   if (apiKey) query.set("api_key", apiKey);
@@ -27,7 +31,12 @@ export async function fetchFeeds(params: Record<string, string>): Promise<Feed[]
     );
 
     if (!res.ok) {
-      throw new Error("Falha ao buscar dados do ThingSpeak");
+      // Loga o status e o início da resposta (nunca a chave) para facilitar o diagnóstico
+      const body = (await res.text()).slice(0, 200);
+      throw new Error(
+        `Falha ao buscar dados do ThingSpeak: HTTP ${res.status} (canal ${channelId}, ` +
+          `read key ${apiKey ? `configurada, ${apiKey.length} caracteres` : "AUSENTE"}) — ${body}`
+      );
     }
 
     const data: ThingSpeakResponse = await res.json();
