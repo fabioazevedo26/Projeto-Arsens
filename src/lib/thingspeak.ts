@@ -1,5 +1,5 @@
 import { isSimulation, parseReading } from "./co";
-import type { ChartPoint, Feed } from "./feed";
+import { parseRs, type ChartPoint, type Feed } from "./feed";
 
 interface ThingSpeakResponse {
   channel: {
@@ -7,7 +7,7 @@ interface ThingSpeakResponse {
     name: string;
     description: string;
   };
-  feeds: Feed[];
+  feeds: Omit<Feed, "rs">[];
 }
 
 // Busca leituras do canal em ordem cronológica (mais antiga primeiro).
@@ -40,7 +40,8 @@ export async function fetchFeeds(params: Record<string, string>): Promise<Feed[]
     }
 
     const data: ThingSpeakResponse = await res.json();
-    return data.feeds ?? null;
+    // field4 (Rs) vira número; leituras antigas sem o campo ficam com rs = null
+    return data.feeds?.map((f) => ({ ...f, rs: parseRs(f.field4) })) ?? null;
   } catch (error) {
     console.error(error);
     return null;
@@ -49,6 +50,7 @@ export async function fetchFeeds(params: Record<string, string>): Promise<Feed[]
 
 // Agrupa as leituras em janelas de `minutes` minutos (média), ignorando falhas
 // do sensor e valores de simulação, para manter o gráfico leve e legível.
+// Rs (diagnóstico) não entra nas médias.
 export function bucketFeeds(feeds: Feed[], minutes = 10): ChartPoint[] {
   const size = minutes * 60_000;
   const buckets = new Map<number, { co: number[]; temp: number[]; hum: number[] }>();

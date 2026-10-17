@@ -6,6 +6,7 @@ import HistoryTable from "@/components/HistoryTable";
 import LocationMap from "@/components/LocationMap";
 import MetricCard from "@/components/MetricCard";
 import { isSimulation, parseReading } from "@/lib/co";
+import { formatRs } from "@/lib/feed";
 import { getDashboardData } from "@/lib/thingspeak";
 
 // Sempre renderiza no momento da requisição (dados em tempo real, sem pré-renderização no build).
@@ -89,6 +90,21 @@ export default async function DashboardPage() {
             icon={
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z" />
+              </svg>
+            }
+          />
+          <MetricCard
+            label="Resistência do Sensor (Rs)"
+            value={latest?.rs}
+            unit="Ω"
+            accent="text-emerald-400"
+            format={formatRs}
+            caption="Dado bruto do MQ-7 (diagnóstico)"
+            emptyText="—"
+            showFailure={false} // leituras antigas não têm Rs: ausência não é falha
+            icon={
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2 12h4l2-5 3 10 3-10 3 10 2-5h3" />
               </svg>
             }
           />

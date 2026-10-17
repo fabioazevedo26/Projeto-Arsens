@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { getCoLevel, parseReading } from "@/lib/co";
-import { getRowStatus, type Feed } from "@/lib/feed";
+import { formatRsText, getRowStatus, type Feed } from "@/lib/feed";
 
 interface HistoryTableProps {
   feeds: Feed[]; // Mais recentes primeiro
@@ -56,13 +56,14 @@ export default function HistoryTable({ feeds }: HistoryTableProps) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] border-collapse text-left text-sm">
+        <table className="w-full min-w-[660px] border-collapse text-left text-sm">
           <thead>
             <tr className="bg-slate-900/50 text-xs font-medium tracking-wider text-slate-400 uppercase">
               <th className="px-5 py-3">Data / Hora</th>
               <th className="px-5 py-3 text-right">CO (ppm)</th>
               <th className="px-5 py-3 text-right">Temp. (°C)</th>
               <th className="px-5 py-3 text-right">Umidade (%)</th>
+              <th className="px-5 py-3 text-right">Rs (kΩ)</th>
               <th className="px-5 py-3">Status</th>
             </tr>
           </thead>
@@ -83,6 +84,7 @@ export default function HistoryTable({ feeds }: HistoryTableProps) {
                   </td>
                   <td className="px-5 py-3 text-right whitespace-nowrap text-slate-200">{cell(feed.field2)}</td>
                   <td className="px-5 py-3 text-right whitespace-nowrap text-slate-200">{cell(feed.field3)}</td>
+                  <td className="px-5 py-3 text-right whitespace-nowrap text-emerald-300/90">{formatRsText(feed.rs)}</td>
                   <td className="px-5 py-3 whitespace-nowrap">
                     {status === "ok" && <span className="text-xs text-slate-500">OK</span>}
                     {status === "erro" && (
@@ -101,7 +103,7 @@ export default function HistoryTable({ feeds }: HistoryTableProps) {
             })}
             {visibleRows.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-5 py-8 text-center text-slate-500">
+                <td colSpan={6} className="px-5 py-8 text-center text-slate-500">
                   Nenhum registro para exibir.
                 </td>
               </tr>

@@ -47,9 +47,9 @@ function buildCsv(feeds: Feed[]): string {
   const num = (value: string | null) => parseReading(value)?.toString() ?? "";
 
   return [
-    "data_hora_utc,data_hora_manaus,co_ppm,temperatura_c,umidade_pct,status",
+    "data_hora_utc,data_hora_manaus,co_ppm,temperatura_c,umidade_pct,rs_ohm,status",
     ...feeds.map((f) =>
-      [f.created_at, manausTime(f.created_at), num(f.field1), num(f.field2), num(f.field3), getRowStatus(f)].join(",")
+      [f.created_at, manausTime(f.created_at), num(f.field1), num(f.field2), num(f.field3), f.rs ?? "", getRowStatus(f)].join(",")
     ),
   ].join("\r\n");
 }
@@ -68,6 +68,7 @@ function buildWorkbook(feeds: Feed[]): ExcelJS.Workbook {
     { header: "CO (ppm)", key: "co", width: 11, style: { numFmt: "0.00" } },
     { header: "Temperatura (°C)", key: "temp", width: 17, style: { numFmt: "0.00" } },
     { header: "Umidade (%)", key: "hum", width: 13, style: { numFmt: "0.00" } },
+    { header: "Rs (Ω)", key: "rs", width: 11, style: { numFmt: "#,##0" } },
     { header: "Status", key: "status", width: 12 },
   ];
 
@@ -83,6 +84,7 @@ function buildWorkbook(feeds: Feed[]): ExcelJS.Workbook {
       co: co !== null && !isSimulation(co) ? co : null, // 999,90 é botão de teste, não medição
       temp: parseReading(feed.field2),
       hum: parseReading(feed.field3),
+      rs: feed.rs, // inteiro; vazio nas leituras antigas (sem field4)
       status: STATUS_LABEL[status],
     });
 
@@ -103,7 +105,7 @@ function buildWorkbook(feeds: Feed[]): ExcelJS.Workbook {
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E293B" } }; // slate-800
   });
 
-  sheet.autoFilter = { from: "A1", to: "F1" };
+  sheet.autoFilter = { from: "A1", to: "G1" };
 
   // Aba com metadados, útil para quem usar os dados em pesquisa
   const info = workbook.addWorksheet("Sobre os dados");
@@ -117,9 +119,17 @@ function buildWorkbook(feeds: Feed[]): ExcelJS.Workbook {
     ["Status OK", "Leitura válida"],
     ["Status Erro", "Falha do sensor (valor 0,00 ou vazio em algum campo); célula deixada em branco"],
     ["Status Simulação", "Botão de teste do ESP32 (CO = 999,90); CO deixado em branco"],
+    [
+      "Rs (Ω)",
+      "Resistência do elemento sensor do MQ-7 medida no fim da fase de 1,4 V. É o dado bruto usado no " +
+        "cálculo do ppm: PPM = 99,042 × (Rs/R0)^−1,518, onde R0 é a resistência de referência obtida por " +
+        "calibração em ar limpo. Leituras anteriores a 17/10/2026 não possuem esse campo.",
+    ],
     ["Observação", "Leituras do MQ-7 são indicativas, não certificadas."],
   ]);
   info.getColumn(1).font = { bold: true };
+  info.getColumn(1).alignment = { vertical: "top" };
+  info.getColumn(2).alignment = { vertical: "top", wrapText: true }; // textos longos (ex.: Rs) quebram linha
   info.getCell("B5").numFmt = "dd/mm/yyyy hh:mm";
   info.getCell("B5").alignment = { horizontal: "left" };
 

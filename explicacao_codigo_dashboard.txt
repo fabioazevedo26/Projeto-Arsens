@@ -104,6 +104,7 @@ Mapeamento dos campos do ThingSpeak:
 - field1     -> Nível de CO (PPM)
 - field2     -> Temperatura (°C)
 - field3     -> Umidade (%)
+- field4     -> Rs do sensor MQ-7 (Ω), dado de diagnóstico
 - created_at -> Data/hora do registro (convertida para o fuso "America/Manaus").
 
 
@@ -132,6 +133,9 @@ Mapeamento dos campos do ThingSpeak:
     Valor 0.00 (ou vazio) em qualquer campo é considerado falha do sensor. A linha recebe o
     status "erro". Esses valores não entram nas médias do gráfico e podem ser ocultados na
     tabela.
+    Essa regra vale só para CO, temperatura e umidade (field1 a field3). Rs (field4) vazio NÃO
+    é considerado erro: as leituras antigas, anteriores ao firmware corrigido, não têm esse
+    campo. Rs também não entra nas médias do gráfico.
 
 
 5. COMPONENTES DA TELA
@@ -152,9 +156,13 @@ Mapeamento dos campos do ThingSpeak:
       Vermelha para cima = o CO subiu; verde para baixo = o CO caiu.
     - Lógica do Modo Simulação (item 4.2).
 
-5.3 Cards de Temperatura e Umidade (src/components/MetricCard.tsx)
-    Cards menores. Temperatura em rosa e umidade em índigo — cores escolhidas de propósito
-    para não se confundirem com as cores de alerta do semáforo.
+5.3 Cards de Temperatura, Umidade e Resistência do Sensor (src/components/MetricCard.tsx)
+    Temperatura em rosa, umidade em índigo e Rs em verde (emerald) — cores escolhidas de
+    propósito para não se confundirem com as cores de alerta do semáforo.
+    O card "Resistência do Sensor (Rs)" mostra o valor bruto do MQ-7 antes da conversão para
+    ppm (legenda "Dado bruto do MQ-7 (diagnóstico)"): abaixo de 1.000 Ω em Ω (ex.: "980 Ω"),
+    a partir de 1.000 Ω em kΩ com 1 casa decimal (ex.: "21,7 kΩ"); sem valor, "—".
+    Os 4 cards ficam em 1 coluna no celular, 2×2 no tablet e lado a lado no computador.
 
 5.4 Gráfico das últimas 24 h (src/components/ChartComponent.tsx)
     - Mostra CO, Temperatura e Umidade juntos. O CO usa o eixo da esquerda (ppm); temperatura e
@@ -171,7 +179,8 @@ Mapeamento dos campos do ThingSpeak:
     a rolagem da página não virar zoom; o link "Abrir mapa" abre a versão interativa.
 
 5.6 Tabela de histórico (src/components/HistoryTable.tsx)
-    - Lista as últimas 20 leituras com Data/Hora, CO, Temperatura, Umidade e Status.
+    - Lista as últimas 20 leituras com Data/Hora, CO, Temperatura, Umidade, Rs (kΩ) e Status.
+    - A coluna Rs usa o mesmo formato do card (Ω ou kΩ); leituras antigas mostram "—".
     - O valor de CO de cada linha usa a cor do semáforo.
     - Chave "Ocultar leituras com erro" (ligada por padrão): esconde as linhas com 0.00.
       Desligada, elas aparecem apagadas com a etiqueta amarela "Erro".
@@ -180,17 +189,20 @@ Mapeamento dos campos do ThingSpeak:
     Baixa até 8.000 leituras do ThingSpeak, para uso em pesquisas acadêmicas, em dois formatos:
 
     a) "Baixar Histórico (.xlsx)" — planilha do Excel gerada com a biblioteca "exceljs":
-       - Colunas: Data | Hora | CO (ppm) | Temperatura (°C) | Umidade (%) | Status
+       - Colunas: Data | Hora | CO (ppm) | Temperatura (°C) | Umidade (%) | Rs (Ω) | Status
+       - Rs (Ω) é um número inteiro real (formato "#,##0"), vazio quando não houver valor.
        - Larguras de coluna ajustadas, cabeçalho destacado e fixo ao rolar, e filtros prontos.
        - Datas e números são valores reais (não texto): dá para ordenar, filtrar e fazer
          gráficos direto no Excel. Horário de Manaus (UTC-4), 2 casas decimais.
        - Linhas de Erro ficam em amarelo claro e de Simulação em lilás. Nelas, o valor
          inválido fica em branco (999,90 é o botão de teste, não uma medição).
        - Uma segunda aba, "Sobre os dados", traz local, sensores, fuso e o significado dos
-         status — útil para citar os dados em trabalhos acadêmicos.
+         status — útil para citar os dados em trabalhos acadêmicos. Também explica o Rs e a
+         fórmula de conversão para ppm.
 
     b) "CSV padrão (Python/R)" — padrão internacional (",", decimal ".") com os dados brutos:
-       data_hora_utc, data_hora_manaus, co_ppm, temperatura_c, umidade_pct, status
+       data_hora_utc, data_hora_manaus, co_ppm, temperatura_c, umidade_pct, rs_ohm, status
+       (rs_ohm é inteiro e fica vazio nas leituras antigas)
 
     A rota fica dentro de /dashboard, então também exige login.
 
@@ -237,9 +249,16 @@ usando uma senha forte (diferente da usada nos testes locais).
 
 9. PONTOS DE ATENÇÃO E MELHORIAS FUTURAS
 ----------------------------------------
-- Calibração do MQ-7: leituras na casa de centenas de ppm em via pública indicam necessidade
-  de calibrar o sensor (pré-aquecimento e ajuste da curva). Os valores são indicativos, não
-  certificados.
+- Calibração do MQ-7: as leituras anteriores a 17/10/2026 (~440 ppm) são inválidas.
+  O ADC do ESP32 estava configurado com atenuação de 0 dB e saturava no valor máximo,
+  e a conversão para ppm era linear. O firmware foi corrigido: atenuação de 11 dB,
+  cálculo da resistência do sensor (Rs = RL × (Vc − V_A0) / V_A0, com RL efetivo
+  considerando o divisor de tensão), aquecimento por PWM com tensão RMS correta
+  (1,4 V), leitura no fim da fase de baixa temperatura e conversão pela curva
+  logarítmica do datasheet (PPM = 99,042 × (Rs/R0)^−1,518). R0 é obtido por calibração
+  em ar limpo após 48 h de pré-aquecimento. Abaixo de ~20 ppm as leituras são
+  indicativas, por estarem abaixo da faixa especificada do sensor. Os valores
+  continuam sendo indicativos, não certificados.
 - O Next.js 16 avisa que o arquivo "middleware.ts" foi renomeado para "proxy.ts". O código
   atual ainda funciona, mas a migração é recomendada.
 - O "npm run lint" aponta um uso de "any" em src/app/actions.ts (tipagem a melhorar).

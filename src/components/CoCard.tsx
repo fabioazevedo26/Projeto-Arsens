@@ -35,7 +35,7 @@ export default function CoCard({ value, previous, updatedAt }: CoCardProps) {
   return (
     <section
       aria-label="Nível de monóxido de carbono"
-      className={`relative rounded-xl border bg-slate-800 p-6 shadow-lg transition-colors sm:col-span-2 ${
+      className={`relative rounded-xl border bg-slate-800 p-6 shadow-lg transition-colors ${
         simulation ? "border-purple-500/50" : "border-slate-700 hover:border-slate-600"
       }`}
     >
@@ -44,7 +44,7 @@ export default function CoCard({ value, previous, updatedAt }: CoCardProps) {
         <div className={`absolute -right-10 -top-10 h-40 w-40 rounded-full blur-3xl ${simulation ? "bg-purple-500/20" : level ? `${level.dot} opacity-10` : "bg-slate-500/10"}`} />
       </div>
 
-      <div className="relative flex items-start justify-between gap-3">
+      <div className="relative flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-medium text-slate-400">Nível de CO</h2>
 
@@ -78,9 +78,9 @@ export default function CoCard({ value, previous, updatedAt }: CoCardProps) {
         )}
       </div>
 
-      <div className="relative mt-4 flex items-baseline gap-2">
+      <div className="relative mt-4 flex flex-wrap items-baseline gap-x-2">
         <p
-          className={`text-5xl font-bold tracking-tight tabular-nums sm:text-6xl ${
+          className={`text-5xl font-bold tracking-tight tabular-nums ${
             level ? `${level.text} ${level.pulse ? "animate-pulse" : ""}` : simulation ? "text-purple-400/60" : "text-slate-500"
           }`}
         >
