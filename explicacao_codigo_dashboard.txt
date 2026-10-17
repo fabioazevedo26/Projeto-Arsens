@@ -10,14 +10,20 @@ web de monitoramento de Monóxido de Carbono (CO), Temperatura e Umidade em temp
 - Nuvem: o ESP32 envia as leituras para o canal 3387680 do ThingSpeak.
 - Painel: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4 e Recharts 3.
 
+O site tem duas "personas":
+- Painel público (rota /): para o cidadão comum. Tema claro, linguagem simples, sem login.
+- Painel técnico (rota /dashboard): para pesquisadores. Tema escuro, gráficos, tabela e
+  exportação de dados. Exige login.
+
 
 0. ESTRUTURA DE ARQUIVOS
 ------------------------
 src/
-  middleware.ts                 -> Protege as rotas (exige login).
+  middleware.ts                 -> Exige login só no painel técnico (/dashboard e sub-rotas).
   app/
     layout.tsx                  -> Layout raiz: fonte Inter, idioma pt-BR, título da aba.
     globals.css                 -> Tema escuro padrão (fundo slate-900) e fonte.
+    page.tsx                    -> Painel público do cidadão (rota /, sem login).
     actions.ts                  -> Server Actions de login e logout.
     login/page.tsx              -> Tela de login.
     sobre/page.tsx              -> Página "Sobre" o projeto.
@@ -26,9 +32,10 @@ src/
       RefreshButton.tsx         -> Botão de atualizar + auto-refresh a cada 15 s (Client).
       export/route.ts           -> Rota que gera o arquivo CSV para download.
   components/
-    DashboardHeader.tsx         -> Cabeçalho: logo, status "Ao vivo", Telegram, atualizar, sair.
+    DashboardHeader.tsx         -> Cabeçalho: logo, status, modo simples, Telegram, atualizar, sair.
+    PublicRefresh.tsx           -> Auto-refresh invisível do painel público (Client).
     CoCard.tsx                  -> Card principal do Nível de CO (semáforo, tendência, simulação).
-    MetricCard.tsx              -> Cards menores de Temperatura e Umidade.
+    MetricCard.tsx              -> Cards menores de Temperatura, Umidade e Rs.
     ChartComponent.tsx          -> Gráfico de linhas das últimas 24 h (Client, Recharts).
     LocationMap.tsx             -> Mini-mapa com o ponto de coleta (OpenStreetMap).
     HistoryTable.tsx            -> Tabela das últimas 20 leituras + botão de CSV (Client).
@@ -49,6 +56,8 @@ Variáveis utilizadas:
 - THINGSPEAK_READ_API_KEY    -> Chave de LEITURA do canal (o canal é privado).
 - ADMIN_USER / ADMIN_PASS    -> Usuário e senha da tela de login.
 - TELEGRAM_BOT_URL           -> Link do bot de alertas (https://t.me/MonitorCOESP32_789_bot).
+- CO_CALIBRADO               -> "true" liga o semáforo do CO no painel público. Qualquer outro
+                               valor (ou ausente) mostra "Sensor em calibração" (ver 5.8).
 
 Essas variáveis são lidas apenas no servidor e nunca são enviadas ao navegador. O arquivo
 .env.local NÃO vai para o GitHub (o .gitignore ignora arquivos .env*).
@@ -59,7 +68,8 @@ ESP32 e nunca deve ser colocada no painel nem divulgada.
 Separação Server x Client Components:
 - Server Components (page.tsx, CoCard, MetricCard, LocationMap, DashboardHeader) rodam no
   servidor: buscam os dados e entregam o HTML pronto, sem enviar JavaScript extra.
-- Client Components (marcados com "use client": ChartComponent, HistoryTable, RefreshButton)
+- Client Components (marcados com "use client": ChartComponent, HistoryTable, RefreshButton,
+  PublicRefresh)
   rodam no navegador porque precisam de interatividade (gráfico, chave liga/desliga, timer).
 - O código que lê as chaves (lib/thingspeak.ts) só é importado por arquivos de servidor. Os
   componentes do navegador importam apenas lib/feed.ts e lib/co.ts, que não têm segredos.
@@ -75,13 +85,17 @@ Separação Server x Client Components:
 Quando você acessa o site, o Next.js carrega o "middleware.ts". O papel do middleware é
 interceptar as requisições. Se você tentar acessar "/dashboard" (ou qualquer sub-rota, como
 "/dashboard/export") sem um "cookie" de sessão válido, ele te redireciona para "/login".
+A raiz "/" (painel público) NÃO passa pelo middleware: qualquer pessoa pode abrir.
+O botão "Acesso para Pesquisadores (Painel Técnico)" do painel público leva ao "/login";
+se a pessoa já estiver logada, o middleware a manda direto para o "/dashboard".
 
 Na tela de login você digita usuário e senha. Ao clicar em "Entrar no Painel", os dados são
 enviados para o "actions.ts" (via Server Actions).
 
 O "actions.ts" compara o que foi digitado com ADMIN_USER e ADMIN_PASS. Se bater, cria um
 cookie seguro (httpOnly, válido por 1 dia) chamado "session" e redireciona para o Dashboard.
-Se não bater, mostra "Credenciais inválidas. Tente novamente.". O botão "Sair" apaga o cookie.
+Se não bater, mostra "Credenciais inválidas. Tente novamente.". O botão "Sair" apaga o cookie
+e volta para o painel público ("/").
 
 
 3. O DASHBOARD E O THINGSPEAK
@@ -206,6 +220,27 @@ Mapeamento dos campos do ThingSpeak:
 
     A rota fica dentro de /dashboard, então também exige login.
 
+5.8 Painel público do cidadão (src/app/page.tsx)
+    Página inicial do site (rota /), aberta a todos, em tema claro e linguagem simples.
+    - Busca só a leitura mais recente do ThingSpeak (results=1), para ficar leve: a página
+      se atualiza a cada 15 s para cada visitante (componente PublicRefresh).
+    - Card principal com o status do CO, usando as mesmas faixas do painel técnico (co.ts),
+      traduzidas para "Qualidade Boa" (verde), "Atenção" (amarelo), "Risco Moderado"
+      (laranja) e "Perigo" (vermelho), com uma orientação para quem está no ponto. O valor em
+      ppm aparece pequeno, em segundo plano.
+    - Estados especiais: "Modo de Demonstração" (botão de teste, 999,90), "Sem leitura no
+      momento" (sem valor válido) e aviso de dados desatualizados (mais de 5 min sem envio).
+    - "Sensor em calibração": enquanto CO_CALIBRADO não for "true", o semáforo fica pausado
+      e o valor de CO não é exibido, para não alarmar o público com leituras ainda não
+      calibradas. Temperatura e umidade continuam aparecendo. Para ativar o semáforo depois
+      de calibrar o R0: cadastrar CO_CALIBRADO=true na Vercel e fazer Redeploy.
+    - Temperatura e umidade (o Rs não aparece: é dado técnico).
+    - Blocos de contexto (o ponto de ônibus em frente ao Millennium Shopping, ao lado da
+      Uninorte, e o efeito do tráfego de ônibus no ar de quem espera) e educativo (o que é o
+      CO e seus efeitos), com links para a EPA e para as diretrizes da OMS (2021).
+    - Botão "Acesso para Pesquisadores (Painel Técnico)", que leva ao login. No painel
+      técnico, o botão com ícone de casa ("Voltar ao Modo Simples") volta para a raiz.
+
 
 6. ATUALIZAÇÃO DOS DADOS (MANUAL E AUTOMÁTICA)
 ----------------------------------------------
@@ -241,7 +276,8 @@ Identidade visual ("Central de Comando / Telemetria"):
 3. No terminal, dentro da pasta do projeto:
      npm install
      npm run dev
-4. Abrir http://localhost:3000 e entrar com ADMIN_USER e ADMIN_PASS.
+4. Abrir http://localhost:3000 (painel público). Para o painel técnico, clicar em
+   "Acesso para Pesquisadores" e entrar com ADMIN_USER e ADMIN_PASS.
 
 Em produção (Vercel), cadastre as mesmas variáveis em Settings > Environment Variables,
 usando uma senha forte (diferente da usada nos testes locais).
@@ -267,9 +303,10 @@ usando uma senha forte (diferente da usada nos testes locais).
 RESUMO DO FLUXO
 ---------------
 1. O ESP32 mede CO, temperatura e umidade e envia ao ThingSpeak.
-2. Você digita a senha; o actions.ts valida e cria um cookie.
-3. O middleware.ts deixa você entrar no /dashboard.
-4. O dashboard/page.tsx busca no ThingSpeak, no servidor, as últimas 20 leituras e as 24 h.
-5. As regras (semáforo, simulação, erro) são aplicadas e a tela é montada.
-6. A cada 15 s a página se atualiza sozinha, sem recarregar.
-7. Pesquisadores podem baixar o histórico completo em CSV.
+2. O cidadão abre o site (/) e vê o status do ar em linguagem simples, sem login.
+3. O pesquisador digita a senha; o actions.ts valida e cria um cookie.
+4. O middleware.ts deixa o pesquisador entrar no /dashboard.
+5. O dashboard/page.tsx busca no ThingSpeak, no servidor, as últimas 20 leituras e as 24 h.
+6. As regras (semáforo, simulação, erro) são aplicadas e a tela é montada.
+7. A cada 15 s as duas páginas se atualizam sozinhas, sem recarregar.
+8. Pesquisadores podem baixar o histórico completo (.xlsx ou CSV).

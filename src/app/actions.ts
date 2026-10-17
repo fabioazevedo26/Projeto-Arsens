@@ -26,5 +26,5 @@ export async function login(prevState: any, formData: FormData) {
 
 export async function logout() {
   (await cookies()).delete("session");
-  redirect("/login");
+  redirect("/"); // volta ao painel público
 }

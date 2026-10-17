@@ -54,6 +54,18 @@ export default function DashboardHeader({ isLive, lastSeen }: DashboardHeaderPro
         </div>
 
         <nav className="flex shrink-0 items-center gap-2">
+          {/* Volta ao painel público do cidadão (/) */}
+          <Link
+            href="/"
+            aria-label="Voltar ao Modo Simples"
+            title="Voltar ao Modo Simples"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10" />
+            </svg>
+            <span className="hidden xl:inline">Voltar ao Modo Simples</span>
+          </Link>
           <Link
             href="/sobre"
             className="hidden rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-800 hover:text-white md:inline-flex"
