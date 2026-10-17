@@ -30,9 +30,10 @@ export default function DashboardHeader({ isLive, lastSeen }: DashboardHeaderPro
             height={40}
             className="rounded-md object-contain"
           />
-          <div className="min-w-0">
-            <p className="text-lg leading-tight font-bold tracking-wide text-white">ARSENS</p>
-            <p className="hidden truncate text-xs text-slate-400 sm:block">Monitoramento ambiental · Manaus</p>
+          {/* No celular o nome some: o logo já traz "ARSENS" e o espaço fica para o status */}
+          <div className="hidden min-w-0 sm:block">
+            <p className="truncate text-lg leading-tight font-bold tracking-wide text-white">ARSENS</p>
+            <p className="truncate text-xs text-slate-400">Monitoramento ambiental · Manaus</p>
           </div>
 
           {/* Status de conexão */}
