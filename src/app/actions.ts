@@ -18,7 +18,9 @@ export async function login(prevState: any, formData: FormData) {
       path: "/",
     });
 
-    redirect("/dashboard");
+    // Após o login, a primeira tela é o painel público; o técnico fica a um clique
+    // ("Acesso para Pesquisadores" -> /login -> middleware redireciona para /dashboard).
+    redirect("/");
   }
 
   return { error: "Credenciais inválidas. Tente novamente." };

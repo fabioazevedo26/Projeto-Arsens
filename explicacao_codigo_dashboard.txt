@@ -93,7 +93,9 @@ Na tela de login você digita usuário e senha. Ao clicar em "Entrar no Painel",
 enviados para o "actions.ts" (via Server Actions).
 
 O "actions.ts" compara o que foi digitado com ADMIN_USER e ADMIN_PASS. Se bater, cria um
-cookie seguro (httpOnly, válido por 1 dia) chamado "session" e redireciona para o Dashboard.
+cookie seguro (httpOnly, válido por 1 dia) chamado "session" e redireciona para o painel
+público ("/"). De lá, o botão "Acesso para Pesquisadores" abre o painel técnico direto, sem
+pedir a senha de novo (a sessão já existe).
 Se não bater, mostra "Credenciais inválidas. Tente novamente.". O botão "Sair" apaga o cookie
 e volta para o painel público ("/").
 
@@ -305,7 +307,8 @@ RESUMO DO FLUXO
 1. O ESP32 mede CO, temperatura e umidade e envia ao ThingSpeak.
 2. O cidadão abre o site (/) e vê o status do ar em linguagem simples, sem login.
 3. O pesquisador digita a senha; o actions.ts valida e cria um cookie.
-4. O middleware.ts deixa o pesquisador entrar no /dashboard.
+4. Após o login, ele volta ao painel público; ao clicar em "Acesso para Pesquisadores",
+   o middleware.ts o deixa entrar no /dashboard.
 5. O dashboard/page.tsx busca no ThingSpeak, no servidor, as últimas 20 leituras e as 24 h.
 6. As regras (semáforo, simulação, erro) são aplicadas e a tela é montada.
 7. A cada 15 s as duas páginas se atualizam sozinhas, sem recarregar.
