@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import { logout } from "@/app/actions";
 import RefreshButton from "@/app/dashboard/RefreshButton";
 
 interface DashboardHeaderProps {
@@ -83,18 +82,6 @@ export default function DashboardHeader({ isLive, lastSeen }: DashboardHeaderPro
             <span className="hidden sm:inline lg:hidden">Alertas</span>
           </a>
           <RefreshButton />
-          <form action={logout}>
-            <button
-              type="submit"
-              aria-label="Sair"
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-slate-700 hover:text-white"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17l5-5-5-5M20 12H9M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6" />
-              </svg>
-              <span className="hidden md:inline">Sair</span>
-            </button>
-          </form>
         </nav>
       </div>
     </header>

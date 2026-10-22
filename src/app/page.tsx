@@ -287,7 +287,7 @@ export default async function HomePage() {
         {/* Acesso ao painel técnico */}
         <div className="pb-4 text-center">
           <Link
-            href="/login"
+            href="/dashboard"
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2"
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">

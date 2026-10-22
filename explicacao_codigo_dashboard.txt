@@ -11,28 +11,26 @@ web de monitoramento de Monóxido de Carbono (CO), Temperatura e Umidade em temp
 - Painel: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4 e Recharts 3.
 
 O site tem duas "personas":
-- Painel público (rota /): para o cidadão comum. Tema claro, linguagem simples, sem login.
+- Painel público (rota /): para o cidadão comum. Tema claro, linguagem simples.
 - Painel técnico (rota /dashboard): para pesquisadores. Tema escuro, gráficos, tabela e
-  exportação de dados. Exige login.
+  exportação de dados.
+Os dois painéis são 100% abertos: não há login nem senha.
 
 
 0. ESTRUTURA DE ARQUIVOS
 ------------------------
 src/
-  middleware.ts                 -> Exige login só no painel técnico (/dashboard e sub-rotas).
   app/
     layout.tsx                  -> Layout raiz: fonte Inter, idioma pt-BR, título da aba.
     globals.css                 -> Tema escuro padrão (fundo slate-900) e fonte.
-    page.tsx                    -> Painel público do cidadão (rota /, sem login).
-    actions.ts                  -> Server Actions de login e logout.
-    login/page.tsx              -> Tela de login.
+    page.tsx                    -> Painel público do cidadão (rota /).
     sobre/page.tsx              -> Página "Sobre" o projeto.
     dashboard/
       page.tsx                  -> Página principal do painel (Server Component).
       RefreshButton.tsx         -> Botão de atualizar + auto-refresh a cada 15 s (Client).
       export/route.ts           -> Rota que gera o arquivo CSV para download.
   components/
-    DashboardHeader.tsx         -> Cabeçalho: logo, status, modo simples, Telegram, atualizar, sair.
+    DashboardHeader.tsx         -> Cabeçalho: logo, status, modo simples, Telegram, atualizar.
     PublicRefresh.tsx           -> Auto-refresh invisível do painel público (Client).
     CoCard.tsx                  -> Card principal do Nível de CO (semáforo, tendência, simulação).
     MetricCard.tsx              -> Cards menores de Temperatura, Umidade e Rs.
@@ -54,7 +52,6 @@ armazenar informações sensíveis.
 Variáveis utilizadas:
 - THINGSPEAK_CHANNEL_ID      -> ID do canal no ThingSpeak (3387680).
 - THINGSPEAK_READ_API_KEY    -> Chave de LEITURA do canal (o canal é privado).
-- ADMIN_USER / ADMIN_PASS    -> Usuário e senha da tela de login.
 - TELEGRAM_BOT_URL           -> Link do bot de alertas (https://t.me/MonitorCOESP32_789_bot).
 - CO_CALIBRADO               -> "true" liga o semáforo do CO no painel público. Qualquer outro
                                valor (ou ausente) mostra "Sensor em calibração" (ver 5.8).
@@ -75,29 +72,23 @@ Separação Server x Client Components:
   componentes do navegador importam apenas lib/feed.ts e lib/co.ts, que não têm segredos.
 
 
-2. FLUXO DE AUTENTICAÇÃO (LOGIN)
---------------------------------
-- Arquivo: src/app/login/page.tsx
-- Arquivo: src/app/actions.ts
-- Arquivo: src/middleware.ts
+2. ACESSO AOS PAINÉIS
+---------------------
+- Arquivo: next.config.ts
 
 * Como funciona:
-Quando você acessa o site, o Next.js carrega o "middleware.ts". O papel do middleware é
-interceptar as requisições. Se você tentar acessar "/dashboard" (ou qualquer sub-rota, como
-"/dashboard/export") sem um "cookie" de sessão válido, ele te redireciona para "/login".
-A raiz "/" (painel público) NÃO passa pelo middleware: qualquer pessoa pode abrir.
-O botão "Acesso para Pesquisadores (Painel Técnico)" do painel público leva ao "/login";
-se a pessoa já estiver logada, o middleware a manda direto para o "/dashboard".
+O site é 100% aberto: não há login, senha nem cookie de sessão. Qualquer pessoa pode abrir
+o painel público ("/"), o painel técnico ("/dashboard") e baixar o histórico
+("/dashboard/export").
 
-Na tela de login você digita usuário e senha. Ao clicar em "Entrar no Painel", os dados são
-enviados para o "actions.ts" (via Server Actions).
+- No painel público, o botão "Acesso para Pesquisadores (Painel Técnico)" leva ao
+  "/dashboard".
+- No painel técnico, o botão com ícone de casa ("Voltar ao Modo Simples") volta para "/".
+- Links antigos para "/login" (favoritos, QR codes) são redirecionados para "/dashboard"
+  pela regra "redirects" do next.config.ts.
 
-O "actions.ts" compara o que foi digitado com ADMIN_USER e ADMIN_PASS. Se bater, cria um
-cookie seguro (httpOnly, válido por 1 dia) chamado "session" e redireciona para o painel
-público ("/"). De lá, o botão "Acesso para Pesquisadores" abre o painel técnico direto, sem
-pedir a senha de novo (a sessão já existe).
-Se não bater, mostra "Credenciais inválidas. Tente novamente.". O botão "Sair" apaga o cookie
-e volta para o painel público ("/").
+As chaves do ThingSpeak continuam protegidas: elas ficam só no servidor (item 1) e nunca
+chegam ao navegador, mesmo com o site aberto.
 
 
 3. O DASHBOARD E O THINGSPEAK
@@ -162,7 +153,8 @@ Mapeamento dos campos do ThingSpeak:
     - Status de conexão: "Ao vivo" (ponto verde piscando) quando a última leitura tem menos de
       5 minutos; caso contrário, "Offline · há X min/h", indicando que o ESP32 parou de enviar.
     - Botão "Receber Alertas no Telegram", que abre o bot em nova aba.
-    - Botões "Atualizar" e "Sair". Em telas pequenas os textos somem e ficam só os ícones.
+    - Botões "Voltar ao Modo Simples" e "Atualizar". Em telas pequenas os textos somem e
+      ficam só os ícones.
 
 5.2 Card de Nível de CO (src/components/CoCard.tsx)
     - Valor atual grande, com a cor do semáforo e etiqueta do nível (Normal, Atenção...).
@@ -220,7 +212,7 @@ Mapeamento dos campos do ThingSpeak:
        data_hora_utc, data_hora_manaus, co_ppm, temperatura_c, umidade_pct, rs_ohm, status
        (rs_ohm é inteiro e fica vazio nas leituras antigas)
 
-    A rota fica dentro de /dashboard, então também exige login.
+    A rota é aberta, como o resto do site.
 
 5.8 Painel público do cidadão (src/app/page.tsx)
     Página inicial do site (rota /), aberta a todos, em tema claro e linguagem simples.
@@ -240,7 +232,7 @@ Mapeamento dos campos do ThingSpeak:
     - Blocos de contexto (o ponto de ônibus em frente ao Millennium Shopping, ao lado da
       Uninorte, e o efeito do tráfego de ônibus no ar de quem espera) e educativo (o que é o
       CO e seus efeitos), com links para a EPA e para as diretrizes da OMS (2021).
-    - Botão "Acesso para Pesquisadores (Painel Técnico)", que leva ao login. No painel
+    - Botão "Acesso para Pesquisadores (Painel Técnico)", que leva ao /dashboard. No painel
       técnico, o botão com ícone de casa ("Voltar ao Modo Simples") volta para a raiz.
 
 
@@ -279,10 +271,9 @@ Identidade visual ("Central de Comando / Telemetria"):
      npm install
      npm run dev
 4. Abrir http://localhost:3000 (painel público). Para o painel técnico, clicar em
-   "Acesso para Pesquisadores" e entrar com ADMIN_USER e ADMIN_PASS.
+   "Acesso para Pesquisadores" ou abrir http://localhost:3000/dashboard.
 
-Em produção (Vercel), cadastre as mesmas variáveis em Settings > Environment Variables,
-usando uma senha forte (diferente da usada nos testes locais).
+Em produção (Vercel), cadastre as mesmas variáveis em Settings > Environment Variables.
 
 
 9. PONTOS DE ATENÇÃO E MELHORIAS FUTURAS
@@ -297,19 +288,17 @@ usando uma senha forte (diferente da usada nos testes locais).
   em ar limpo após 48 h de pré-aquecimento. Abaixo de ~20 ppm as leituras são
   indicativas, por estarem abaixo da faixa especificada do sensor. Os valores
   continuam sendo indicativos, não certificados.
-- O Next.js 16 avisa que o arquivo "middleware.ts" foi renomeado para "proxy.ts". O código
-  atual ainda funciona, mas a migração é recomendada.
-- O "npm run lint" aponta um uso de "any" em src/app/actions.ts (tipagem a melhorar).
+- Como o site é aberto, qualquer pessoa pode baixar o histórico completo. Cada download
+  faz uma consulta de até 8.000 leituras ao ThingSpeak; se o volume de acessos crescer,
+  vale considerar um cache para essa rota.
 
 
 RESUMO DO FLUXO
 ---------------
 1. O ESP32 mede CO, temperatura e umidade e envia ao ThingSpeak.
-2. O cidadão abre o site (/) e vê o status do ar em linguagem simples, sem login.
-3. O pesquisador digita a senha; o actions.ts valida e cria um cookie.
-4. Após o login, ele volta ao painel público; ao clicar em "Acesso para Pesquisadores",
-   o middleware.ts o deixa entrar no /dashboard.
-5. O dashboard/page.tsx busca no ThingSpeak, no servidor, as últimas 20 leituras e as 24 h.
-6. As regras (semáforo, simulação, erro) são aplicadas e a tela é montada.
-7. A cada 15 s as duas páginas se atualizam sozinhas, sem recarregar.
-8. Pesquisadores podem baixar o histórico completo (.xlsx ou CSV).
+2. O cidadão abre o site (/) e vê o status do ar em linguagem simples.
+3. O pesquisador clica em "Acesso para Pesquisadores" e abre o /dashboard (sem login).
+4. O dashboard/page.tsx busca no ThingSpeak, no servidor, as últimas 20 leituras e as 24 h.
+5. As regras (semáforo, simulação, erro) são aplicadas e a tela é montada.
+6. A cada 15 s as duas páginas se atualizam sozinhas, sem recarregar.
+7. Pesquisadores podem baixar o histórico completo (.xlsx ou CSV).

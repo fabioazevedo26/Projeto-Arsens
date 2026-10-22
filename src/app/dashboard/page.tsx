@@ -1,4 +1,4 @@
-import { logout } from "@/app/actions";
+import Link from "next/link";
 import ChartComponent from "@/components/ChartComponent";
 import CoCard from "@/components/CoCard";
 import DashboardHeader from "@/components/DashboardHeader";
@@ -33,10 +33,10 @@ export default async function DashboardPage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-900 text-white">
         <h1 className="text-xl">Erro ao carregar dados do ThingSpeak.</h1>
-        <p className="text-slate-400">Verifique suas credenciais e conexão.</p>
-        <form action={logout}>
-          <button className="rounded-lg bg-red-600 px-4 py-2 hover:bg-red-700">Sair</button>
-        </form>
+        <p className="text-slate-400">Verifique a conexão e tente novamente em instantes.</p>
+        <Link href="/" className="rounded-lg bg-slate-700 px-4 py-2 hover:bg-slate-600">
+          Voltar ao Modo Simples
+        </Link>
       </div>
     );
   }
