@@ -1,15 +1,26 @@
 @import "tailwindcss";
 
-/* Tema escuro por padrão (slate-900 / slate-100) */
+/* Identidade ARSENS (Stitch "Civic Air Interface"): fundo off-white que absorve o brilho do sol,
+   texto em ardósia escura e teal amazônico como cor da marca. */
 :root {
-  --background: #0f172a;
-  --foreground: #f1f5f9;
+  --background: #f8fafc; /* slate-50 — Canvas Base */
+  --foreground: #0f172a; /* slate-900 — Neutral Base */
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+@theme {
+  /* Marca: Amazon Teal (#0D9488 = teal-600) e Deep Forest Teal (#0F766E = teal-700) */
+  --color-brand: #0d9488;
+  --color-brand-strong: #0f766e;
+
+  /* Elevação: nível 1 (cards) e nível 2 (barras flutuantes / destaques) */
+  --shadow-card: 0 4px 16px -2px rgb(15 23 42 / 0.05), 0 2px 6px -1px rgb(15 23 42 / 0.03);
+  --shadow-raised: 0 10px 25px -4px rgb(15 23 42 / 0.08), 0 4px 10px -2px rgb(15 23 42 / 0.04);
 }
 
 body {

@@ -2,10 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useTransition } from "react";
+import Icon from "./Icon";
 
 const AUTO_REFRESH_MS = 15_000;
 
-export default function RefreshButton() {
+interface RefreshButtonProps {
+  variant?: "primary" | "onDark"; // onDark: sobre a faixa escura do painel técnico
+}
+
+export default function RefreshButton({ variant = "primary" }: RefreshButtonProps) {
   const router = useRouter();
   const [isRefreshing, startTransition] = useTransition();
 
@@ -27,29 +32,21 @@ export default function RefreshButton() {
     });
   };
 
+  const style =
+    variant === "onDark"
+      ? "bg-teal-500 text-slate-950 hover:bg-teal-400"
+      : "bg-brand text-white hover:bg-brand-strong";
+
   return (
     <button
       onClick={handleRefresh}
       disabled={isRefreshing}
-      title="Atualiza automaticamente a cada 15s"
+      title="Atualiza automaticamente a cada 15 s"
       aria-label="Atualizar dados"
-      className="text-sm px-3 py-2 flex items-center gap-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700 transition-colors disabled:opacity-50"
+      className={`inline-flex h-12 items-center gap-2 rounded-2xl px-4 text-sm font-semibold shadow-sm transition-all active:scale-[0.98] disabled:opacity-60 ${style}`}
     >
-      <svg
-        className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={2}
-          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-        />
-      </svg>
-      <span className="hidden md:inline">{isRefreshing ? "Atualizando..." : "Atualizar"}</span>
+      <Icon name="refresh" className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+      <span>{isRefreshing ? "Atualizando..." : "Atualizar"}</span>
     </button>
   );
 }

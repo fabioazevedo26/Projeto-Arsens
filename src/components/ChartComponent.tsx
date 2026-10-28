@@ -5,6 +5,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -20,13 +21,13 @@ type SeriesKey = "co" | "temp" | "hum";
 
 // Hex equivalentes à paleta Tailwind — o SVG do Recharts não lê classes.
 const SERIES: Record<SeriesKey, { label: string; unit: string; color: string; axis: "co" | "env" }> = {
-  co: { label: "CO", unit: "ppm", color: "#22d3ee", axis: "co" }, // cyan-400
-  temp: { label: "Temperatura", unit: "°C", color: "#f472b6", axis: "env" }, // pink-400
-  hum: { label: "Umidade", unit: "%", color: "#818cf8", axis: "env" }, // indigo-400
+  co: { label: "CO", unit: "ppm", color: "#0f766e", axis: "co" }, // teal-700 (marca)
+  temp: { label: "Temperatura", unit: "°C", color: "#ea580c", axis: "env" }, // orange-600
+  hum: { label: "Umidade", unit: "%", color: "#0284c7", axis: "env" }, // sky-600
 };
 
-const GRID = "#334155"; // slate-700
-const AXIS = "#94a3b8"; // slate-400
+const GRID = "#e2e8f0"; // slate-200
+const AXIS = "#64748b"; // slate-500
 
 const formatTime = (ts: number) =>
   new Date(ts).toLocaleTimeString("pt-BR", { timeZone: "America/Manaus", hour: "2-digit", minute: "2-digit" });
@@ -47,11 +48,11 @@ export default function ChartComponent({ data }: ChartComponentProps) {
   const showEnvAxis = visible.temp || visible.hum;
 
   return (
-    <section className="flex flex-col rounded-xl border border-slate-700 bg-slate-800 shadow-lg lg:col-span-2">
-      <div className="flex flex-col gap-3 border-b border-slate-700 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <section className="flex flex-col rounded-3xl border border-slate-200 bg-white shadow-card lg:col-span-2">
+      <div className="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-base font-semibold text-white">Histórico das últimas 24 h</h2>
-          <p className="text-xs text-slate-400">Médias a cada 10 minutos · horário de Manaus</p>
+          <h2 className="text-lg font-bold tracking-tight text-slate-900">Séries temporais das últimas 24 h</h2>
+          <p className="text-sm text-slate-500">Médias a cada 10 minutos · horário de Manaus</p>
         </div>
 
         {/* Legenda interativa: liga/desliga cada série */}
@@ -62,10 +63,10 @@ export default function ChartComponent({ data }: ChartComponentProps) {
               type="button"
               aria-pressed={visible[key]}
               onClick={() => toggle(key)}
-              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-3 text-xs font-semibold transition-colors ${
                 visible[key]
-                  ? "border-slate-600 bg-slate-900/60 text-slate-200"
-                  : "border-slate-700 text-slate-500 line-through"
+                  ? "border-slate-300 bg-slate-50 text-slate-800"
+                  : "border-slate-200 text-slate-400 line-through"
               }`}
             >
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: SERIES[key].color }} />
@@ -118,14 +119,25 @@ export default function ChartComponent({ data }: ChartComponentProps) {
                 domain={[0, 100]}
                 label={{ value: "°C / %", angle: 90, position: "insideRight", fill: AXIS, fontSize: 11 }}
               />
+              {/* Limite de referência da EPA para CO (média de 8 h) */}
+              {visible.co && (
+                <ReferenceLine
+                  yAxisId="co"
+                  y={9}
+                  stroke="#dc2626"
+                  strokeDasharray="6 4"
+                  label={{ value: "EPA 9 ppm", position: "insideTopLeft", fill: "#b91c1c", fontSize: 11 }}
+                />
+              )}
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#0f172a", // slate-900
-                  border: `1px solid ${GRID}`,
-                  borderRadius: 8,
+                  backgroundColor: "#ffffff",
+                  border: "1px solid #cbd5e1", // slate-300
+                  borderRadius: 12,
+                  boxShadow: "0 10px 25px -4px rgb(15 23 42 / 0.08)",
                   fontSize: 12,
                 }}
-                labelStyle={{ color: AXIS, marginBottom: 4 }}
+                labelStyle={{ color: "#0f172a", fontWeight: 600, marginBottom: 4 }}
                 labelFormatter={(ts) => formatDateTime(Number(ts))}
                 formatter={(value, name) => {
                   const s = SERIES[name as SeriesKey];
@@ -149,9 +161,9 @@ export default function ChartComponent({ data }: ChartComponentProps) {
                     if (!isolated || cx == null || cy == null || data[i]?.[key] == null) {
                       return <g key={`${key}-${i}`} />;
                     }
-                    return <circle key={`${key}-${i}`} cx={cx} cy={cy} r={3} fill={SERIES[key].color} />;
+                    return <circle key={`${key}-${i}`} cx={cx} cy={cy} r={4} fill={SERIES[key].color} stroke="#ffffff" strokeWidth={2} />;
                   }}
-                  activeDot={{ r: 4 }}
+                  activeDot={{ r: 5, stroke: "#ffffff", strokeWidth: 2 }}
                   isAnimationActive={false}
                 />
               ))}
