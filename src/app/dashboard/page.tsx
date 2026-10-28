@@ -40,12 +40,12 @@ export default async function DashboardPage() {
       <div className="flex min-h-screen flex-col bg-background">
         <SiteHeader active="tecnico" />
         <main className="flex flex-1 items-center justify-center px-4">
-          <div className="max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-card">
+          <div className="max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center shadow-card">
             <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-500 text-white">
               <Icon name="cloudOff" className="h-7 w-7" />
             </span>
-            <h1 className="mt-4 text-xl font-bold text-slate-900">Erro ao carregar dados do ThingSpeak</h1>
-            <p className="mt-2 text-slate-600">Verifique a conexão e tente novamente em instantes.</p>
+            <h1 className="mt-4 text-xl font-bold text-slate-900 dark:text-slate-50">Erro ao carregar dados do ThingSpeak</h1>
+            <p className="mt-2 text-slate-600 dark:text-slate-400">Verifique a conexão e tente novamente em instantes.</p>
             <Link
               href="/"
               className="mt-6 inline-flex min-h-12 items-center gap-2 rounded-2xl bg-brand px-5 text-sm font-semibold text-white hover:bg-brand-strong"
@@ -72,11 +72,11 @@ export default async function DashboardPage() {
   const isLive = ageMs < LIVE_THRESHOLD_MS;
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-slate-900">
+    <div className="flex min-h-screen flex-col bg-background text-slate-900 dark:text-slate-50">
       <SiteHeader active="tecnico" live={{ isLive, lastSeen: latest ? formatAge(ageMs) : "sem dados" }} />
 
       {/* Faixa de título do painel técnico */}
-      <div className="bg-slate-900 text-white">
+      <div className="bg-slate-900 text-white dark:border-b dark:border-slate-800 dark:bg-slate-900/70">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <div className="flex items-start gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-500/15 text-teal-300">
@@ -84,7 +84,7 @@ export default async function DashboardPage() {
             </span>
             <div>
               <h1 className="text-2xl font-bold tracking-tight">Painel Técnico de Telemetria</h1>
-              <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-slate-300">
+              <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-slate-300 dark:text-slate-600">
                 <Icon name="mapPin" className="h-4 w-4 text-teal-300" />
                 Av. Djalma Batista · Coord. {LAT}, {LON} (Millennium / Uninorte)
               </p>
@@ -122,7 +122,7 @@ export default async function DashboardPage() {
             value={latest?.field2}
             unit="°C"
             icon="thermometer"
-            tone="bg-orange-50 text-orange-600"
+            tone="bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400"
           />
           <MetricCard
             eyebrow="BME280"
@@ -130,7 +130,7 @@ export default async function DashboardPage() {
             value={latest?.field3}
             unit="%"
             icon="droplet"
-            tone="bg-sky-50 text-sky-600"
+            tone="bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400"
           />
           <MetricCard
             eyebrow="MQ-7 · diagnóstico"
@@ -138,7 +138,7 @@ export default async function DashboardPage() {
             value={latest?.rs}
             unit="Ω"
             icon="activity"
-            tone="bg-slate-100 text-slate-600"
+            tone="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
             format={formatRs}
             caption="Dado bruto do MQ-7 (diagnóstico)"
             emptyText="—"
@@ -149,9 +149,9 @@ export default async function DashboardPage() {
         {/* 2. Gráfico 24 h + ponto de coleta */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <ChartComponent data={chart} />
-          <section className="flex flex-col rounded-3xl border border-slate-200 bg-white p-5 shadow-card">
+          <section className="flex flex-col rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-card">
             <h2 className="text-lg font-bold tracking-tight">Ponto de coleta</h2>
-            <p className="text-sm text-slate-500">Parada de ônibus Atlantic Tower C/B · via de alto tráfego</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Parada de ônibus Atlantic Tower C/B · via de alto tráfego</p>
             <LocationMap className="mt-4 h-64 lg:h-auto lg:flex-1" />
           </section>
         </div>

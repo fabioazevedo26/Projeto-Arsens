@@ -58,12 +58,12 @@ async function getLatestReading() {
 }
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs font-bold tracking-[0.08em] text-brand-strong uppercase">{children}</p>;
+  return <p className="text-xs font-bold tracking-[0.08em] text-brand-strong dark:text-teal-300 uppercase">{children}</p>;
 }
 
 function SectionIcon({ name }: { name: Parameters<typeof Icon>[0]["name"] }) {
   return (
-    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-brand-strong">
+    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-50 dark:bg-teal-500/10 text-brand-strong dark:text-teal-300">
       <Icon name={name} className="h-5 w-5" />
     </span>
   );
@@ -85,29 +85,29 @@ export default async function HomePage() {
   const lastSeen = latest ? formatAge(ageMs) : "sem dados";
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-slate-900">
+    <div className="flex min-h-screen flex-col bg-background text-slate-900 dark:text-slate-50">
       <SiteHeader active="cidadao" live={{ isLive: !isStale, lastSeen }} />
 
       <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 lg:space-y-8 lg:px-8 lg:py-8">
         {/* Abertura */}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-1">
-            <p className="flex items-center gap-2 text-xs font-bold tracking-[0.08em] text-brand-strong uppercase">
+            <p className="flex items-center gap-2 text-xs font-bold tracking-[0.08em] text-brand-strong dark:text-teal-300 uppercase">
               <span className="h-2 w-2 rounded-full bg-brand" />
               Monitoramento cidadão do ar · Manaus
             </p>
             <h1 className="text-[26px] leading-8 font-extrabold tracking-tight sm:text-4xl sm:leading-[44px]">
               Como está o ar agora?
             </h1>
-            <p className="flex items-start gap-2 text-slate-600">
+            <p className="flex items-start gap-2 text-slate-600 dark:text-slate-400">
               <Icon name="bus" className="mt-0.5 h-5 w-5 shrink-0 text-brand" />
               Parada de ônibus da Av. Djalma Batista, em frente ao Millennium Shopping e ao lado da Uninorte
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2 self-start rounded-2xl border border-slate-200 bg-white p-2 shadow-card lg:self-auto">
+          <div className="flex flex-wrap items-center gap-2 self-start rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 shadow-card lg:self-auto">
             <span
               className={`inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold ${
-                isStale ? "bg-slate-100 text-slate-600" : "bg-teal-50 text-teal-800"
+                isStale ? "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400" : "bg-teal-50 dark:bg-teal-500/10 text-teal-800 dark:text-teal-200"
               }`}
             >
               <Icon name="clock" className="h-4 w-4" />
@@ -131,26 +131,26 @@ export default async function HomePage() {
               <Icon name={status.icon} className="h-10 w-10 sm:h-12 sm:w-12" />
             </span>
             <div className="space-y-2">
-              <span className="inline-flex rounded-full bg-white/80 px-3 py-1 text-xs font-bold tracking-wide text-slate-700 uppercase">
+              <span className="inline-flex rounded-full bg-white/80 dark:bg-slate-950/40 px-3 py-1 text-xs font-bold tracking-wide text-slate-700 dark:text-slate-300 uppercase">
                 Monóxido de carbono (CO)
               </span>
               <h2 className={`text-4xl leading-tight font-extrabold tracking-tight sm:text-5xl ${status.text}`}>
                 {status.label}
               </h2>
-              <p className="max-w-2xl text-base leading-relaxed text-slate-700 sm:text-lg">{status.advice}</p>
+              <p className="max-w-2xl text-base leading-relaxed text-slate-700 dark:text-slate-300 sm:text-lg">{status.advice}</p>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-card lg:min-w-72">
-            <p className="text-xs font-bold tracking-[0.08em] text-slate-500 uppercase">Concentração atual de CO</p>
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-card lg:min-w-72">
+            <p className="text-xs font-bold tracking-[0.08em] text-slate-500 dark:text-slate-400 uppercase">Concentração atual de CO</p>
             {showValue && co !== null ? (
               <>
                 <p className="mt-2 flex items-baseline gap-1.5">
                   <span className="text-5xl font-extrabold tracking-tight tabular-nums">{formatNumber(co)}</span>
-                  <span className="text-lg font-semibold text-slate-500">ppm</span>
+                  <span className="text-lg font-semibold text-slate-500 dark:text-slate-400">ppm</span>
                 </p>
                 {latest && (
-                  <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-600">
+                  <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400">
                     <Icon name="checkCircle" className="h-4 w-4 text-brand" />
                     Medido às {formatTime(latest.created_at)}
                   </p>
@@ -158,19 +158,19 @@ export default async function HomePage() {
               </>
             ) : (
               <>
-                <p className="mt-2 text-5xl font-extrabold tracking-tight text-slate-300">—</p>
-                <p className="mt-1 max-w-64 text-sm text-slate-600">{HIDDEN_VALUE_NOTE[key]}</p>
+                <p className="mt-2 text-5xl font-extrabold tracking-tight text-slate-300 dark:text-slate-600">—</p>
+                <p className="mt-1 max-w-64 text-sm text-slate-600 dark:text-slate-400">{HIDDEN_VALUE_NOTE[key]}</p>
               </>
             )}
-            <p className="mt-4 border-t border-slate-200 pt-3 text-xs text-slate-500">
-              Referência EPA: até <strong className="text-slate-700">9 ppm</strong> em média de 8 horas
+            <p className="mt-4 border-t border-slate-200 dark:border-slate-800 pt-3 text-xs text-slate-500 dark:text-slate-400">
+              Referência EPA: até <strong className="text-slate-700 dark:text-slate-300">9 ppm</strong> em média de 8 horas
             </p>
           </div>
         </section>
 
         {isStale && latest && (
-          <p className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-card">
-            <Icon name="cloudOff" className="mt-0.5 h-5 w-5 shrink-0 text-slate-500" />O sensor não envia dados {lastSeen}.
+          <p className="flex items-start gap-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-slate-700 dark:text-slate-300 shadow-card">
+            <Icon name="cloudOff" className="mt-0.5 h-5 w-5 shrink-0 text-slate-500 dark:text-slate-400" />O sensor não envia dados {lastSeen}.
             As informações acima podem estar desatualizadas.
           </p>
         )}
@@ -196,15 +196,15 @@ export default async function HomePage() {
             icon="activity"
             value={isStale ? "Sem sinal" : "Ao vivo"}
             note={latest ? `Última leitura às ${formatTime(latest.created_at)} · atualiza a cada 15 s` : "Nenhuma leitura recebida"}
-            valueClass={isStale ? "text-slate-500" : "text-brand-strong"}
+            valueClass={isStale ? "text-slate-500 dark:text-slate-400" : "text-brand-strong dark:text-teal-300"}
           />
         </div>
 
         {/* Escala educativa */}
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-card sm:p-8">
+        <section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-card sm:p-8">
           <Eyebrow>Escala educativa</Eyebrow>
           <h2 className="mt-1 text-xl font-bold tracking-tight sm:text-2xl">Como ler o indicador de monóxido de carbono</h2>
-          <p className="mt-2 max-w-3xl text-slate-600">
+          <p className="mt-2 max-w-3xl text-slate-600 dark:text-slate-400">
             Quanto menor a concentração em ppm (partes por milhão), mais limpo está o ar no ponto de ônibus. As faixas
             seguem os limites de referência da EPA.
           </p>
@@ -216,10 +216,10 @@ export default async function HomePage() {
               return (
                 <li
                   key={k}
-                  className={`relative rounded-2xl border p-4 ${current ? `${s.soft} ring-2 ring-offset-2 ring-slate-900/10` : "border-slate-200 bg-slate-50"}`}
+                  className={`relative rounded-2xl border p-4 ${current ? `${s.soft} ring-2 ring-offset-2 ring-slate-900/10 dark:ring-white/10` : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50"}`}
                 >
                   {current && (
-                    <span className="absolute -top-3 left-4 rounded-full bg-slate-900 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-white uppercase">
+                    <span className="absolute -top-3 left-4 rounded-full bg-slate-900 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-white uppercase dark:bg-slate-100 dark:text-slate-900">
                       Nível atual
                     </span>
                   )}
@@ -230,7 +230,7 @@ export default async function HomePage() {
                     </span>
                   </div>
                   <p className={`mt-1 text-sm font-bold ${s.text}`}>{s.range}</p>
-                  <p className="mt-2 text-sm leading-relaxed text-slate-600">{SCALE_TEXT[k]}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">{SCALE_TEXT[k]}</p>
                 </li>
               );
             })}
@@ -244,7 +244,7 @@ export default async function HomePage() {
 
         {/* Saúde + localização */}
         <div className="grid gap-6 lg:grid-cols-12">
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-card sm:p-8 lg:col-span-7">
+          <section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-card sm:p-8 lg:col-span-7">
             <div className="flex items-center gap-3">
               <SectionIcon name="shield" />
               <div>
@@ -252,7 +252,7 @@ export default async function HomePage() {
                 <h2 className="text-xl font-bold tracking-tight sm:text-2xl">O que é o monóxido de carbono?</h2>
               </div>
             </div>
-            <div className="mt-4 space-y-3 leading-relaxed text-slate-700">
+            <div className="mt-4 space-y-3 leading-relaxed text-slate-700 dark:text-slate-300">
               <p>
                 O monóxido de carbono (CO) é chamado de <strong>&quot;assassino invisível&quot;</strong>: é um gás sem cor
                 e sem cheiro, impossível de perceber sem um sensor. Nas cidades, a maior parte dele vem do escapamento de
@@ -264,42 +264,42 @@ export default async function HomePage() {
               </p>
             </div>
 
-            <p className="mt-5 text-xs font-bold tracking-[0.08em] text-slate-500 uppercase">Sintomas comuns da exposição</p>
+            <p className="mt-5 text-xs font-bold tracking-[0.08em] text-slate-500 dark:text-slate-400 uppercase">Sintomas comuns da exposição</p>
             <ul className="mt-2 flex flex-wrap gap-2">
               {SYMPTOMS.map((s) => (
                 <li
                   key={s}
-                  className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700"
+                  className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 px-3 text-sm font-medium text-slate-700 dark:text-slate-300"
                 >
-                  <Icon name="alertCircle" className="h-4 w-4 text-amber-600" />
+                  <Icon name="alertCircle" className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   {s}
                 </li>
               ))}
             </ul>
 
-            <div className="mt-5 rounded-2xl bg-teal-50 p-4">
-              <p className="flex items-center gap-2 font-semibold text-teal-900">
+            <div className="mt-5 rounded-2xl bg-teal-50 dark:bg-teal-500/10 p-4">
+              <p className="flex items-center gap-2 font-semibold text-teal-900 dark:text-teal-100">
                 <Icon name="users" className="h-5 w-5" />
                 Quem merece mais atenção no ponto de ônibus
               </p>
-              <p className="mt-1 text-sm leading-relaxed text-teal-900/80">
+              <p className="mt-1 text-sm leading-relaxed text-teal-900/80 dark:text-teal-100/80">
                 Crianças, idosos, gestantes e pessoas com doenças do coração são as mais sensíveis ao CO. Em horários de
                 trânsito intenso, prefira esperar um pouco mais afastado do meio-fio.
               </p>
             </div>
 
-            <p className="mt-5 text-sm leading-relaxed text-slate-600">
+            <p className="mt-5 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
               A <strong>EPA</strong> (Agência de Proteção Ambiental dos EUA) adota como limite 9 ppm em média de 8 horas e
               35 ppm em média de 1 hora, base da escala acima. A <strong>OMS</strong> também inclui o CO nas suas
               diretrizes de qualidade do ar.
             </p>
             <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-              <span className="text-xs font-bold tracking-[0.08em] text-slate-500 uppercase">Fontes</span>
+              <span className="text-xs font-bold tracking-[0.08em] text-slate-500 dark:text-slate-400 uppercase">Fontes</span>
               <a
                 href="https://www.epa.gov/co-pollution/basic-information-about-carbon-monoxide-co-outdoor-air-pollution"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex min-h-12 items-center gap-1 font-semibold text-brand-strong hover:underline sm:min-h-0"
+                className="inline-flex min-h-12 items-center gap-1 font-semibold text-brand-strong dark:text-teal-300 hover:underline sm:min-h-0"
               >
                 EPA — Carbon Monoxide <Icon name="externalLink" className="h-3.5 w-3.5" />
               </a>
@@ -307,14 +307,14 @@ export default async function HomePage() {
                 href="https://www.who.int/publications/i/item/9789240034228"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex min-h-12 items-center gap-1 font-semibold text-brand-strong hover:underline sm:min-h-0"
+                className="inline-flex min-h-12 items-center gap-1 font-semibold text-brand-strong dark:text-teal-300 hover:underline sm:min-h-0"
               >
                 OMS — Diretrizes de Qualidade do Ar (2021) <Icon name="externalLink" className="h-3.5 w-3.5" />
               </a>
             </p>
           </section>
 
-          <section className="flex flex-col rounded-3xl border border-slate-200 bg-white p-5 shadow-card sm:p-8 lg:col-span-5">
+          <section className="flex flex-col rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-card sm:p-8 lg:col-span-5">
             <div className="flex items-center gap-3">
               <SectionIcon name="mapPin" />
               <div>
@@ -322,7 +322,7 @@ export default async function HomePage() {
                 <h2 className="text-xl font-bold tracking-tight sm:text-2xl">Onde fica este sensor?</h2>
               </div>
             </div>
-            <div className="mt-4 space-y-3 leading-relaxed text-slate-700">
+            <div className="mt-4 space-y-3 leading-relaxed text-slate-700 dark:text-slate-300">
               <p>
                 Na <strong>Avenida Djalma Batista</strong>, exatamente na parada de ônibus em frente ao{" "}
                 <strong>Millennium Shopping</strong> e ao lado da <strong>Uninorte</strong>, um dos trechos de maior
@@ -339,12 +339,12 @@ export default async function HomePage() {
         </div>
 
         {/* Ações */}
-        <section className="flex flex-col gap-5 rounded-3xl border border-teal-100 bg-teal-50/60 p-5 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
+        <section className="flex flex-col gap-5 rounded-3xl border border-teal-100 dark:border-teal-500/20 bg-teal-50/60 dark:bg-teal-500/5 p-5 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3">
             <SectionIcon name="flask" />
             <div>
               <p className="font-semibold">Dados abertos para pesquisa</p>
-              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-600">
+              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-400">
                 O painel técnico mostra o histórico de 24 horas, a tabela de leituras e permite baixar os dados em planilha
                 (.xlsx) ou CSV. A página se atualiza sozinha a cada 15 segundos.
               </p>
@@ -355,7 +355,7 @@ export default async function HomePage() {
               href={TELEGRAM_URL}
               target={TELEGRAM_URL === "#" ? undefined : "_blank"}
               rel="noopener noreferrer"
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border-[1.5px] border-brand-strong bg-white px-5 text-sm font-semibold text-brand-strong transition-colors hover:bg-teal-50"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border-[1.5px] border-brand-strong dark:border-teal-400 bg-white dark:bg-slate-900 px-5 text-sm font-semibold text-brand-strong dark:text-teal-300 transition-colors hover:bg-teal-50 dark:hover:bg-teal-500/10"
             >
               <Icon name="send" className="h-4 w-4" />
               Receber alertas no Telegram
@@ -383,7 +383,7 @@ function MetricTile({
   value,
   unit,
   note,
-  valueClass = "text-slate-900",
+  valueClass = "text-slate-900 dark:text-slate-50",
 }: {
   label: string;
   icon: Parameters<typeof Icon>[0]["name"];
@@ -393,18 +393,18 @@ function MetricTile({
   valueClass?: string;
 }) {
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-card sm:p-6">
+    <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-card sm:p-6">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-bold tracking-[0.08em] text-slate-500 uppercase">{label}</p>
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+        <p className="text-xs font-bold tracking-[0.08em] text-slate-500 dark:text-slate-400 uppercase">{label}</p>
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
           <Icon name={icon} className="h-5 w-5" />
         </span>
       </div>
       <p className="mt-3 flex items-baseline gap-1.5">
         <span className={`text-4xl font-extrabold tracking-tight tabular-nums ${valueClass}`}>{value}</span>
-        {unit && <span className="text-lg font-semibold text-slate-500">{unit}</span>}
+        {unit && <span className="text-lg font-semibold text-slate-500 dark:text-slate-400">{unit}</span>}
       </p>
-      <p className="mt-2 text-sm text-slate-500">{note}</p>
+      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{note}</p>
     </div>
   );
 }

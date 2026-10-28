@@ -6,47 +6,47 @@ const COMPONENTS: { title: string; icon: IconName; tone: string; text: string }[
   {
     title: "Sensor MQ-7",
     icon: "activity",
-    tone: "bg-teal-50 text-teal-700",
+    tone: "bg-teal-50 dark:bg-teal-500/10 text-teal-700 dark:text-teal-300",
     text: "Responsável por mensurar a concentração de Monóxido de Carbono através de ciclos químicos precisos de aquecimento e estabilização.",
   },
   {
     title: "Sensor BME280",
     icon: "thermometer",
-    tone: "bg-orange-50 text-orange-600",
+    tone: "bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400",
     text: "Monitora a temperatura e a umidade relativa do ar em tempo real. Como as condições climáticas de regiões tropicais (como Manaus) afetam a leitura de sensores de gás, desenvolvemos um algoritmo de correção dinâmica que calibra os dados de PPM (Partes por Milhão) de acordo com o clima local.",
   },
   {
     title: "Conectividade Total",
     icon: "send",
-    tone: "bg-sky-50 text-sky-600",
+    tone: "bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400",
     text: "Os dados são transmitidos simultaneamente para uma plataforma em nuvem (ThingSpeak) para análise de gráficos históricos, exibidos em um painel web local e enviados instantaneamente via alertas no Telegram caso um limite crítico de segurança seja ultrapassado.",
   },
 ];
 
 function Card({ icon, title, children }: { icon: IconName; title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-card sm:p-8">
+    <section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-card sm:p-8">
       <h2 className="flex items-center gap-3 text-xl font-bold tracking-tight sm:text-2xl">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-brand-strong">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-50 dark:bg-teal-500/10 text-brand-strong dark:text-teal-300">
           <Icon name={icon} className="h-5 w-5" />
         </span>
         {title}
       </h2>
-      <div className="mt-4 leading-relaxed text-slate-700">{children}</div>
+      <div className="mt-4 leading-relaxed text-slate-700 dark:text-slate-300">{children}</div>
     </section>
   );
 }
 
 export default function SobrePage() {
   return (
-    <div className="flex min-h-screen flex-col bg-background text-slate-900">
+    <div className="flex min-h-screen flex-col bg-background text-slate-900 dark:text-slate-50">
       <SiteHeader active="sobre" />
 
       <main className="mx-auto w-full max-w-4xl flex-1 space-y-6 px-4 py-8 lg:px-8 lg:py-12">
         <div>
-          <p className="text-xs font-bold tracking-[0.08em] text-brand-strong uppercase">Ciência cidadã · Manaus</p>
+          <p className="text-xs font-bold tracking-[0.08em] text-brand-strong dark:text-teal-300 uppercase">Ciência cidadã · Manaus</p>
           <h1 className="mt-1 text-3xl font-extrabold tracking-tight sm:text-4xl">Sobre o Projeto Arsens</h1>
-          <p className="mt-4 text-lg leading-relaxed text-slate-700">
+          <p className="mt-4 text-lg leading-relaxed text-slate-700 dark:text-slate-300">
             O Arsens é uma iniciativa tecnológica desenvolvida por um grupo de universitários com o propósito de
             enfrentar um desafio invisível, mas extremamente perigoso: a poluição por gases tóxicos em ambientes internos
             e urbanos. Focado inicialmente na detecção de Monóxido de Carbono (CO) — um gás inodoro, insípido e altamente
@@ -67,13 +67,13 @@ export default function SobrePage() {
           <p>O dispositivo utiliza o microcontrolador ESP32 como cérebro central, integrando:</p>
           <ul className="mt-5 space-y-4">
             {COMPONENTS.map((c) => (
-              <li key={c.title} className="flex gap-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <li key={c.title} className="flex gap-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 p-4">
                 <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${c.tone}`}>
                   <Icon name={c.icon} className="h-5 w-5" />
                 </span>
                 <div>
-                  <h3 className="font-semibold text-slate-900">{c.title}</h3>
-                  <p className="mt-1 text-slate-600">{c.text}</p>
+                  <h3 className="font-semibold text-slate-900 dark:text-slate-50">{c.title}</h3>
+                  <p className="mt-1 text-slate-600 dark:text-slate-400">{c.text}</p>
                 </div>
               </li>
             ))}

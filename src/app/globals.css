@@ -1,10 +1,21 @@
 @import "tailwindcss";
 
+/* Modo escuro controlado pela classe "dark" no <html> (botão sol/lua no cabeçalho),
+   e não só pela preferência do sistema. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Identidade ARSENS (Stitch "Civic Air Interface"): fundo off-white que absorve o brilho do sol,
    texto em ardósia escura e teal amazônico como cor da marca. */
 :root {
   --background: #f8fafc; /* slate-50 — Canvas Base */
   --foreground: #0f172a; /* slate-900 — Neutral Base */
+}
+
+/* "Deep Lab Dark Mode" do DESIGN.md: fundo #020617, cards #0F172A, bordas #1E293B */
+.dark {
+  --background: #020617; /* slate-950 */
+  --foreground: #f1f5f9; /* slate-100 */
+  color-scheme: dark; /* barras de rolagem e controles nativos escuros */
 }
 
 @theme inline {

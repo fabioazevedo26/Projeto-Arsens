@@ -22,7 +22,7 @@ Os dois painéis são 100% abertos: não há login nem senha.
 ------------------------
 src/
   app/
-    layout.tsx                  -> Layout raiz: fonte Inter, idioma pt-BR, título da aba.
+    layout.tsx                  -> Layout raiz: fonte Inter, idioma pt-BR, título e script do tema.
     globals.css                 -> Tokens da identidade: fundo off-white, cor da marca e sombras.
     page.tsx                    -> Painel público do cidadão (rota /).
     sobre/page.tsx              -> Página "Sobre o Projeto".
@@ -34,6 +34,7 @@ src/
     SiteFooter.tsx              -> Rodapé comum com o aviso de medições indicativas.
     RefreshButton.tsx           -> Botão Atualizar + auto-refresh a cada 15 s (Client).
     Icon.tsx                    -> Conjunto de ícones em SVG (status, sensores, ações).
+    ThemeToggle.tsx             -> Botão sol/lua que alterna entre modo claro e escuro (Client).
     CoCard.tsx                  -> Card principal do Nível de CO (semáforo, tendência, simulação).
     MetricCard.tsx              -> Cards menores de Temperatura, Umidade e Rs.
     ChartComponent.tsx          -> Gráfico de linhas das últimas 24 h (Client, Recharts).
@@ -43,6 +44,7 @@ src/
     co.ts                       -> Regras do CO: faixas do semáforo, simulação, leitura inválida.
     feed.ts                     -> Tipos dos dados e regra de status de cada linha.
     status-style.ts             -> Aparência de cada status do CO (cor + ícone + texto).
+    theme.ts / theme-key.ts     -> Modo claro/escuro: troca, memória no navegador e hook useIsDark.
     thingspeak.ts               -> Busca no ThingSpeak e cálculo das médias do gráfico.
 
 
@@ -68,7 +70,8 @@ ESP32 e nunca deve ser colocada no painel nem divulgada.
 Separação Server x Client Components:
 - Server Components (page.tsx, CoCard, MetricCard, LocationMap, SiteHeader, SiteFooter) rodam no
   servidor: buscam os dados e entregam o HTML pronto, sem enviar JavaScript extra.
-- Client Components (marcados com "use client": ChartComponent, HistoryTable, RefreshButton)
+- Client Components (marcados com "use client": ChartComponent, HistoryTable, RefreshButton,
+  ThemeToggle)
   rodam no navegador porque precisam de interatividade (gráfico, chave liga/desliga, timer).
 - O código que lê as chaves (lib/thingspeak.ts) só é importado por arquivos de servidor. Os
   componentes do navegador importam apenas lib/feed.ts e lib/co.ts, que não têm segredos.
@@ -157,6 +160,7 @@ Mapeamento dos campos do ThingSpeak:
       "Sem sinal", indicando que o ESP32 parou de enviar.
     - Abas de navegação: Painel Cidadão, Painel Técnico e Sobre o Projeto. No celular elas
       ficam numa segunda linha, com nomes curtos e área de toque de 48 px.
+    - Botão sol/lua para alternar entre modo claro e escuro (item 7.1).
     - Botão "Alertas no Telegram", que abre o bot em nova aba.
     - O painel técnico tem ainda uma faixa escura de título com as coordenadas do ponto e os
       botões "Voltar ao Modo Simples" e "Atualizar".
@@ -294,6 +298,20 @@ forte no ponto de ônibus.
   rola na horizontal em telas estreitas.
 - Elementos das telas do Stitch sem dado real no sistema (vento, sensação térmica, pressão,
   API etc.) não foram implementados.
+
+7.1 MODO CLARO E MODO ESCURO
+- Arquivos: src/components/ThemeToggle.tsx, src/lib/theme.ts, src/app/layout.tsx e globals.css
+- O botão sol/lua no cabeçalho alterna o tema em todas as páginas. A escolha fica salva no
+  navegador (localStorage, chave "arsens-theme") e vale nas próximas visitas.
+- Na primeira visita, o site segue a preferência do aparelho (celular ou computador em modo
+  escuro abre o site escuro).
+- Como funciona: o tema é a classe "dark" no <html>, e cada estilo tem sua versão escura
+  (variantes "dark:" do Tailwind). Um script pequeno no <head> aplica o tema antes de a
+  página ser desenhada, então não há "flash" branco ao abrir o site no modo escuro.
+- Paleta escura ("Deep Lab Dark Mode" do DESIGN.md): fundo #020617, cards #0F172A, bordas
+  #1E293B. As cores de status são as mesmas; os textos coloridos usam tons mais claros
+  para manter o contraste. O mapa recebe um filtro que escurece as cores, e o gráfico
+  troca de paleta junto com o tema.
 
 
 8. COMO RODAR LOCALMENTE
