@@ -85,7 +85,7 @@ export default async function DashboardPage() {
             </span>
             <div>
               <h1 className="text-xl font-bold tracking-tight md:text-2xl">Painel Técnico de Telemetria</h1>
-              <p className="mt-1 hidden flex-wrap items-center gap-x-2 md:flex text-sm text-slate-300 dark:text-slate-600">
+              <p className="mt-1 hidden flex-wrap items-center gap-x-2 md:flex text-sm text-slate-300">
                 <Icon name="mapPin" className="h-4 w-4 text-teal-300" />
                 Av. Djalma Batista · Coord. {LAT}, {LON} (Millennium / Uninorte)
               </p>
