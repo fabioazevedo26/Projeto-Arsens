@@ -5,6 +5,7 @@ import HistoryTable from "@/components/HistoryTable";
 import Icon from "@/components/Icon";
 import LocationMap, { LAT, LON } from "@/components/LocationMap";
 import MetricCard from "@/components/MetricCard";
+import MobileCollapsible from "@/components/MobileCollapsible";
 import RefreshButton from "@/components/RefreshButton";
 import SiteFooter from "@/components/SiteFooter";
 import SiteHeader from "@/components/SiteHeader";
@@ -77,18 +78,18 @@ export default async function DashboardPage() {
 
       {/* Faixa de título do painel técnico */}
       <div className="bg-slate-900 text-white dark:border-b dark:border-slate-800 dark:bg-slate-900/70">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 md:gap-4 md:py-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <div className="flex items-start gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-500/15 text-teal-300">
+            <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-500/15 text-teal-300 md:flex">
               <Icon name="flask" className="h-5 w-5" />
             </span>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Painel Técnico de Telemetria</h1>
-              <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-slate-300 dark:text-slate-600">
+              <h1 className="text-xl font-bold tracking-tight md:text-2xl">Painel Técnico de Telemetria</h1>
+              <p className="mt-1 hidden flex-wrap items-center gap-x-2 md:flex text-sm text-slate-300 dark:text-slate-600">
                 <Icon name="mapPin" className="h-4 w-4 text-teal-300" />
                 Av. Djalma Batista · Coord. {LAT}, {LON} (Millennium / Uninorte)
               </p>
-              <p className="mt-2 inline-flex items-center gap-2 text-xs font-bold tracking-[0.08em] text-teal-300 uppercase">
+              <p className="mt-1 inline-flex items-center gap-2 md:mt-2 text-xs font-bold tracking-[0.08em] text-teal-300 uppercase">
                 <span className={`h-2 w-2 rounded-full ${isLive ? "animate-pulse bg-teal-400" : "bg-slate-500"}`} />
                 {latest ? `Última leitura em ${formatDateTime(latest.created_at)}` : "Sem leituras"}
               </p>
@@ -107,9 +108,9 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 lg:px-8 lg:py-8">
+      <main className="mx-auto w-full max-w-7xl flex-1 space-y-4 px-4 py-4 md:space-y-6 md:py-6 lg:px-8 lg:py-8">
         {/* 1. Métricas principais */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
           <CoCard
             value={latest?.field1}
             previous={previousCo}
@@ -119,6 +120,7 @@ export default async function DashboardPage() {
           <MetricCard
             eyebrow="BME280"
             label="Temperatura ambiente"
+            short="Temp."
             value={latest?.field2}
             unit="°C"
             icon="thermometer"
@@ -127,6 +129,7 @@ export default async function DashboardPage() {
           <MetricCard
             eyebrow="BME280"
             label="Umidade relativa"
+            short="Umidade"
             value={latest?.field3}
             unit="%"
             icon="droplet"
@@ -135,6 +138,7 @@ export default async function DashboardPage() {
           <MetricCard
             eyebrow="MQ-7 · diagnóstico"
             label="Resistência do Sensor (Rs)"
+            short="Rs"
             value={latest?.rs}
             unit="Ω"
             icon="activity"
@@ -149,7 +153,12 @@ export default async function DashboardPage() {
         {/* 2. Gráfico 24 h + ponto de coleta */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <ChartComponent data={chart} />
-          <section className="flex flex-col rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-card">
+          {/* Celular: mapa numa seção que abre com um toque (só carrega ao abrir) */}
+          <MobileCollapsible icon="mapPin" eyebrow="Localização" title="Ponto de coleta">
+            <p className="text-sm text-slate-500 dark:text-slate-400">Parada de ônibus Atlantic Tower C/B · via de alto tráfego</p>
+            <LocationMap className="mt-3 h-56" />
+          </MobileCollapsible>
+          <section className="hidden flex-col rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-card md:flex">
             <h2 className="text-lg font-bold tracking-tight">Ponto de coleta</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">Parada de ônibus Atlantic Tower C/B · via de alto tráfego</p>
             <LocationMap className="mt-4 h-64 lg:h-auto lg:flex-1" />

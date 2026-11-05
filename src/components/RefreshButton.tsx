@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useTransition } from "react";
+import { useEffect, useTransition } from "react";
 import Icon from "./Icon";
 
 const AUTO_REFRESH_MS = 15_000;
@@ -9,25 +9,30 @@ const AUTO_REFRESH_MS = 15_000;
 // internet" costumam acontecer juntos, e o timer pode bater logo em seguida.
 const MIN_GAP_MS = 3_000;
 
+// Compartilhado entre os botões da página (no celular há um segundo botão no card de status)
+let lastRefreshAt = 0;
+
 interface RefreshButtonProps {
   variant?: "primary" | "onDark"; // onDark: sobre a faixa escura do painel técnico
+  auto?: boolean; // liga o timer de 15 s; use false em botões extras para não duplicar o timer
 }
 
-export default function RefreshButton({ variant = "primary" }: RefreshButtonProps) {
+export default function RefreshButton({ variant = "primary", auto = true }: RefreshButtonProps) {
   const router = useRouter();
   const [isRefreshing, startTransition] = useTransition();
-  const lastRefreshAt = useRef(0);
 
   // Auto-refresh silencioso: re-renderiza o Server Component sem recarregar a página.
   useEffect(() => {
+    if (!auto) return;
+
     const refresh = () => {
       // Só com a aba visível e com internet. Sem internet, o refresh falharia e o Next
       // recarregaria a página inteira (que cairia na tela offline); o aviso global já
       // informa que as leituras podem estar desatualizadas.
       if (document.visibilityState !== "visible" || !navigator.onLine) return;
       const now = Date.now();
-      if (now - lastRefreshAt.current < MIN_GAP_MS) return; // evita atualizações duplicadas
-      lastRefreshAt.current = now;
+      if (now - lastRefreshAt < MIN_GAP_MS) return; // evita atualizações duplicadas
+      lastRefreshAt = now;
       router.refresh();
     };
 
@@ -45,11 +50,11 @@ export default function RefreshButton({ variant = "primary" }: RefreshButtonProp
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("online", refresh);
     };
-  }, [router]);
+  }, [router, auto]);
 
   const handleRefresh = () => {
     if (!navigator.onLine) return; // sem internet não há como buscar leituras novas
-    lastRefreshAt.current = Date.now();
+    lastRefreshAt = Date.now();
     startTransition(() => {
       router.refresh();
     });

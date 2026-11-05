@@ -143,6 +143,7 @@ const PATHS = {
       <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7" />
     </>
   ),
+  chevronDown: <path d="m6 9 6 6 6-6" />,
   close: <path d="M18 6 6 18M6 6l12 12" />,
   smartphone: (
     <>

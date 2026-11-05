@@ -4,6 +4,7 @@ import Icon, { type IconName } from "./Icon";
 interface MetricCardProps {
   eyebrow: string; // origem do dado (ex.: "BME280")
   label: string;
+  short?: string; // rótulo curto para o card pequeno do celular
   value: string | number | null | undefined;
   unit: string;
   icon: IconName;
@@ -17,6 +18,7 @@ interface MetricCardProps {
 export default function MetricCard({
   eyebrow,
   label,
+  short,
   value,
   unit,
   icon,
@@ -30,23 +32,26 @@ export default function MetricCard({
   const display = reading === null ? null : format ? format(reading) : { value: reading.toFixed(1), unit };
 
   return (
-    <section className="flex flex-col rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-card">
+    <section className="flex min-w-0 flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3 shadow-card sm:rounded-3xl sm:p-5">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-[11px] font-bold tracking-[0.08em] text-slate-500 dark:text-slate-400 uppercase">{eyebrow}</p>
-          <h2 className="font-semibold text-slate-900 dark:text-slate-50">{label}</h2>
+          <p className="hidden text-[11px] font-bold tracking-[0.08em] text-slate-500 uppercase sm:block dark:text-slate-400">{eyebrow}</p>
+          <h2 className="text-xs font-semibold text-slate-900 sm:text-base dark:text-slate-50">
+            <span className="sm:hidden">{short ?? label}</span>
+            <span className="hidden sm:inline">{label}</span>
+          </h2>
         </div>
-        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tone}`} aria-hidden="true">
+        <span className={`hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:flex ${tone}`} aria-hidden="true">
           <Icon name={icon} className="h-5 w-5" />
         </span>
       </div>
-      <p className="mt-4 flex items-baseline gap-1.5">
-        <span className={`text-5xl font-extrabold tracking-tight tabular-nums ${display ? "text-slate-900 dark:text-slate-50" : "text-slate-300 dark:text-slate-600"}`}>
+      <p className="mt-1 flex flex-wrap items-baseline gap-x-1 sm:mt-4 sm:gap-1.5">
+        <span className={`text-2xl font-extrabold sm:text-5xl tracking-tight tabular-nums ${display ? "text-slate-900 dark:text-slate-50" : "text-slate-300 dark:text-slate-600"}`}>
           {display ? display.value : emptyText}
         </span>
-        {display && <span className="text-base font-semibold text-slate-500 dark:text-slate-400">{display.unit}</span>}
+        {display && <span className="text-xs font-semibold text-slate-500 sm:text-base dark:text-slate-400">{display.unit}</span>}
       </p>
-      <div className="mt-auto pt-3">
+      <div className="mt-auto hidden pt-3 sm:block">
         {reading === null && showFailure && <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">Falha na leitura</p>}
         {caption && <p className="text-xs text-slate-500 dark:text-slate-400">{caption}</p>}
       </div>

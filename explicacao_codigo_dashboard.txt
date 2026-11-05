@@ -39,6 +39,7 @@ src/
     pwa/ServiceWorkerRegister.tsx -> Registra o service worker, só em produção (Client).
     pwa/NetworkStatus.tsx       -> Aviso "Você está sem internet" (Client).
     pwa/InstallPrompt.tsx       -> Aviso de instalação: Android e iPhone (Client).
+    MobileCollapsible.tsx       -> Seção que abre com um toque, só no celular (<details>).
     CoCard.tsx                  -> Card principal do Nível de CO (semáforo, tendência, simulação).
     MetricCard.tsx              -> Cards menores de Temperatura, Umidade e Rs.
     ChartComponent.tsx          -> Gráfico de linhas das últimas 24 h (Client, Recharts).
@@ -377,6 +378,40 @@ Como testar no celular (precisa do site publicado com HTTPS, ex.: na Vercel):
 - Android (Chrome): abrir o site, tocar em "Instalar" no aviso ou no menu ⋮ > Instalar app.
 - iPhone (Safari): Compartilhar > Adicionar à Tela de Início.
 - Abrir pelo ícone, conferir o tema, as bordas da tela e o modo avião (aviso + tela offline).
+
+
+7.3 VERSÃO COMPACTA PARA CELULAR
+Usuários reclamaram de ter que rolar muito no celular. Abaixo de 768 px de largura, as páginas
+usam uma versão compacta; a partir de 768 px (tablet e computador) o layout continua idêntico
+ao anterior. Isso foi conferido comparando a posição e o tamanho de cada elemento antes e
+depois, em 1280 e 800 px: nenhuma diferença.
+
+Resultado num celular de 375 x 812 px:
+- Painel cidadão: de 5.229 px (6,4 telas) para cerca de 1.800 px (2,2 telas). O status do CO
+  e os cards de temperatura, umidade e sensor cabem na primeira tela.
+- Painel técnico: de 3.966 px (4,4 telas) para cerca de 2.150 px (2,4 telas).
+
+O que muda no celular:
+- Painel cidadão:
+  * Abertura só com o título (o local já aparece no cabeçalho).
+  * Card de status compacto, com o ícone ao lado do título. O valor em ppm, a hora da medição,
+    o aviso de "sem dados novos do sensor" e o botão Atualizar ficam numa linha dentro do card.
+  * Temperatura, umidade e situação do sensor em 3 cards pequenos lado a lado.
+  * Régua do indicador como uma barra de 4 cores, com o nível atual destacado; a explicação
+    de cada nível abre em "O que significa cada nível".
+  * "O que é o monóxido de carbono?", "Quem merece mais atenção" e "Onde fica este sensor?"
+    viram seções que abrem com um toque (fechadas por padrão). O mapa só é carregado quando a
+    seção de localização é aberta, o que também economiza internet móvel.
+  * Faixa "Dados abertos" e rodapé mais enxutos.
+- Painel técnico:
+  * Faixa de título menor (sem as coordenadas).
+  * Temperatura, umidade e Rs em 3 cards pequenos lado a lado; gráfico um pouco mais baixo.
+  * Mapa do ponto de coleta numa seção que abre com um toque.
+  * Tabela com as 5 leituras mais recentes e o botão "Ver todas as 20 leituras".
+- As seções que abrem e fecham usam o elemento nativo <details> do HTML: funcionam sem
+  JavaScript e são lidas corretamente por leitores de tela.
+- No celular existe um segundo botão Atualizar (no card de status); só o primeiro liga o
+  timer de 15 s (auto={false} no segundo), para as atualizações não duplicarem.
 
 
 8. COMO RODAR LOCALMENTE
