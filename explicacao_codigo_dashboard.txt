@@ -22,7 +22,8 @@ Os dois painéis são 100% abertos: não há login nem senha.
 ------------------------
 src/
   app/
-    layout.tsx                  -> Layout raiz: fonte Inter, idioma pt-BR, título e script do tema.
+    layout.tsx                  -> Layout raiz: fonte, idioma, metadados do PWA e script do tema.
+    manifest.ts                 -> Manifesto do PWA (/manifest.webmanifest): nome, cores, ícones.
     globals.css                 -> Tokens da identidade: fundo off-white, cor da marca e sombras.
     page.tsx                    -> Painel público do cidadão (rota /).
     sobre/page.tsx              -> Página "Sobre o Projeto".
@@ -35,6 +36,10 @@ src/
     RefreshButton.tsx           -> Botão Atualizar + auto-refresh a cada 15 s (Client).
     Icon.tsx                    -> Conjunto de ícones em SVG (status, sensores, ações).
     ThemeToggle.tsx             -> Botão sol/lua que alterna entre modo claro e escuro (Client).
+    pwa/ServiceWorkerRegister.tsx -> Registra o service worker, só em produção (Client).
+    pwa/NetworkStatus.tsx       -> Aviso "Você está sem internet" (Client).
+    pwa/InstallPrompt.tsx       -> Aviso de instalação: Android e iPhone (Client).
+    MobileCollapsible.tsx       -> Seção que abre com um toque, só no celular (<details>).
     CoCard.tsx                  -> Card principal do Nível de CO (semáforo, tendência, simulação).
     MetricCard.tsx              -> Cards menores de Temperatura, Umidade e Rs.
     ChartComponent.tsx          -> Gráfico de linhas das últimas 24 h (Client, Recharts).
@@ -46,6 +51,13 @@ src/
     status-style.ts             -> Aparência de cada status do CO (cor + ícone + texto).
     theme.ts / theme-key.ts     -> Modo claro/escuro: troca, memória no navegador e hook useIsDark.
     thingspeak.ts               -> Busca no ThingSpeak e cálculo das médias do gráfico.
+    network.ts                  -> Hook useIsOnline (internet do aparelho).
+public/
+  sw.js                         -> Service worker manual (tela offline e ícones; nada de leituras).
+  offline.html                  -> Tela mostrada quando não há internet.
+  icons/                        -> Ícones do PWA, gerados a partir do logo.
+scripts/
+  generate-icons.mjs            -> Gera os ícones de public/icons a partir de public/logo.png.jpeg.
 
 
 1. ARQUITETURA E SEGURANÇA
@@ -265,6 +277,11 @@ perder o estado, como a chave da tabela ou as séries escolhidas no gráfico).
 
 - Automática: um "useEffect" cria um timer que chama router.refresh() a cada 15 segundos.
   Para economizar requisições, a atualização só acontece com a aba visível.
+- Ao voltar para o app (ex.: desbloqueou o celular) e quando a internet volta, a página se
+  atualiza na hora. Um intervalo mínimo de 3 s evita atualizações duplicadas quando esses
+  eventos chegam juntos.
+- Sem internet no aparelho, nenhuma atualização é disparada (ela falharia e o Next
+  recarregaria a página inteira); o aviso global de "sem internet" aparece no lugar.
 - Manual: o botão "Atualizar" faz o mesmo na hora; o ícone gira enquanto a atualização ocorre.
 
 
@@ -314,6 +331,89 @@ forte no ponto de ônibus.
   troca de paleta junto com o tema.
 
 
+7.2 APLICATIVO INSTALÁVEL (PWA)
+O ARSENS pode ser instalado na tela inicial do celular, como um aplicativo, sem loja de apps.
+Regra principal: o app NUNCA mostra uma leitura antiga como se fosse atual.
+
+- Manifesto (src/app/manifest.ts): nome "ARSENS", abre em "/", modo standalone (sem barra do
+  navegador), fundo #F8FAFC e cor do tema #0D9488, com ícones de 192 e 512 px e um ícone
+  "maskable" (desenho menor, dentro do círculo seguro, para o Android recortar sem cortar o
+  logo). No iPhone, o apple-touch-icon de 180 px é usado na tela inicial.
+- Ícones (public/icons): gerados por scripts/generate-icons.mjs a partir do logo oficial, com
+  o "sharp" que já vem com o Next. Se o logo mudar, rode: node scripts/generate-icons.mjs
+  (e aumente a versão do cache no sw.js). Nos tamanhos pequenos, a frase abaixo de "ARSENS"
+  fica ilegível; o símbolo e o nome continuam nítidos.
+- Service worker (public/sw.js), escrito à mão, sem bibliotecas:
+    * Guarda em cache SOMENTE a tela offline (offline.html) e os ícones, num cache com versão
+      ("arsens-shell-v2"). Ao ativar uma versão nova, os caches antigos são apagados.
+    * Abrir ou recarregar uma página vai sempre à rede. Se não houver rede, aparece a tela
+      offline (que não mostra nenhuma leitura).
+    * Nunca guarda nem responde do cache: páginas HTML, dados do router.refresh() (RSC),
+      rotas de API, /dashboard/export, arquivos de /_next/ e outras origens (ThingSpeak,
+      OpenStreetMap). Requisições que não são GET também são ignoradas.
+    * Só é registrado no build de produção (npm run build + npm start, ou na Vercel).
+    * O next.config.ts envia "Cache-Control: no-cache, no-store, must-revalidate" para o
+      /sw.js, para o navegador sempre conferir a versão mais nova.
+- Aviso "Você está sem internet. As leituras podem estar desatualizadas.": aparece no rodapé
+  quando o APARELHO perde a internet. É diferente do selo "Ao vivo" / "Sem sinal" do
+  cabeçalho, que continua indicando se o ESP32 está enviando leituras.
+- Aviso de instalação: discreto, no rodapé, com botão de fechar (a escolha fica salva no
+  navegador, chave "arsens-install-dismissed"). No Android e navegadores compatíveis tem o
+  botão "Instalar"; no iPhone/iPad mostra o passo a passo Compartilhar > Adicionar à Tela de
+  Início. Não aparece se o app já estiver instalado nem sem internet.
+- Tela cheia: viewport-fit=cover, com o cabeçalho e o rodapé respeitando as safe areas
+  (entalhe e barra de gestos). A barra do sistema (theme-color) acompanha o tema real:
+  #F8FAFC no claro e #020617 no escuro, inclusive ao usar o botão sol/lua.
+
+Como testar o PWA no computador:
+1. npm run build e depois npm start (o service worker não roda no npm run dev).
+2. Abrir http://localhost:3000 no Chrome ou Edge e abrir as ferramentas do
+   desenvolvedor (F12) > Application:
+   - Manifest: conferir nome, cores e os 3 ícones, sem erros.
+   - Service workers: /sw.js como "activated and is running".
+   - Cache storage: só "arsens-shell-v2", com offline.html e os 4 ícones.
+3. Em Network, marcar "Offline": aparece o aviso de sem internet; ao recarregar, aparece a
+   tela offline. Desmarcar "Offline" e clicar em "Tentar novamente": a página volta.
+Como testar no celular (precisa do site publicado com HTTPS, ex.: na Vercel):
+- Android (Chrome): abrir o site, tocar em "Instalar" no aviso ou no menu ⋮ > Instalar app.
+- iPhone (Safari): Compartilhar > Adicionar à Tela de Início.
+- Abrir pelo ícone, conferir o tema, as bordas da tela e o modo avião (aviso + tela offline).
+
+
+7.3 VERSÃO COMPACTA PARA CELULAR
+Usuários reclamaram de ter que rolar muito no celular. Abaixo de 768 px de largura, as páginas
+usam uma versão compacta; a partir de 768 px (tablet e computador) o layout continua idêntico
+ao anterior. Isso foi conferido comparando a posição e o tamanho de cada elemento antes e
+depois, em 1280 e 800 px: nenhuma diferença.
+
+Resultado num celular de 375 x 812 px:
+- Painel cidadão: de 5.229 px (6,4 telas) para cerca de 1.800 px (2,2 telas). O status do CO
+  e os cards de temperatura, umidade e sensor cabem na primeira tela.
+- Painel técnico: de 3.966 px (4,4 telas) para cerca de 2.150 px (2,4 telas).
+
+O que muda no celular:
+- Painel cidadão:
+  * Abertura só com o título (o local já aparece no cabeçalho).
+  * Card de status compacto, com o ícone ao lado do título. O valor em ppm, a hora da medição,
+    o aviso de "sem dados novos do sensor" e o botão Atualizar ficam numa linha dentro do card.
+  * Temperatura, umidade e situação do sensor em 3 cards pequenos lado a lado.
+  * Régua do indicador como uma barra de 4 cores, com o nível atual destacado; a explicação
+    de cada nível abre em "O que significa cada nível".
+  * "O que é o monóxido de carbono?", "Quem merece mais atenção" e "Onde fica este sensor?"
+    viram seções que abrem com um toque (fechadas por padrão). O mapa só é carregado quando a
+    seção de localização é aberta, o que também economiza internet móvel.
+  * Faixa "Dados abertos" e rodapé mais enxutos.
+- Painel técnico:
+  * Faixa de título menor (sem as coordenadas).
+  * Temperatura, umidade e Rs em 3 cards pequenos lado a lado; gráfico um pouco mais baixo.
+  * Mapa do ponto de coleta numa seção que abre com um toque.
+  * Tabela com as 5 leituras mais recentes e o botão "Ver todas as 20 leituras".
+- As seções que abrem e fecham usam o elemento nativo <details> do HTML: funcionam sem
+  JavaScript e são lidas corretamente por leitores de tela.
+- No celular existe um segundo botão Atualizar (no card de status); só o primeiro liga o
+  timer de 15 s (auto={false} no segundo), para as atualizações não duplicarem.
+
+
 8. COMO RODAR LOCALMENTE
 ------------------------
 1. Instalar o Node.js (versão LTS).
@@ -351,5 +451,6 @@ RESUMO DO FLUXO
 3. O pesquisador clica em "Acesso para Pesquisadores" e abre o /dashboard (sem login).
 4. O dashboard/page.tsx busca no ThingSpeak, no servidor, as últimas 20 leituras e as 24 h.
 5. As regras (semáforo, simulação, erro) são aplicadas e a tela é montada.
-6. A cada 15 s as duas páginas se atualizam sozinhas, sem recarregar.
+6. A cada 15 s as duas páginas se atualizam sozinhas, sem recarregar (e também ao voltar
+   para o app ou quando a internet volta).
 7. Pesquisadores podem baixar o histórico completo (.xlsx ou CSV).

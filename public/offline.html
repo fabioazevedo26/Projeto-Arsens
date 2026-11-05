@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#F8FAFC" />
+    <title>ARSENS · Sem conexão</title>
+    <script>
+      // Mesmo tema do site: escolha salva (botão sol/lua) ou, se não houver, a do sistema
+      (function () {
+        try {
+          var t = localStorage.getItem("arsens-theme");
+          var dark = t ? t === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+          document.documentElement.classList.toggle("dark", dark);
+          document.querySelector('meta[name="theme-color"]').setAttribute("content", dark ? "#020617" : "#F8FAFC");
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      :root {
+        --bg: #f8fafc;
+        --card: #ffffff;
+        --border: #e2e8f0;
+        --text: #0f172a;
+        --muted: #475569;
+        --brand: #0d9488;
+        --brand-strong: #0f766e;
+        --icon-bg: #f1f5f9;
+        color-scheme: light;
+      }
+      .dark {
+        --bg: #020617;
+        --card: #0f172a;
+        --border: #1e293b;
+        --text: #f1f5f9;
+        --muted: #94a3b8;
+        --brand: #14b8a6;
+        --brand-strong: #0d9488;
+        --icon-bg: #1e293b;
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+      body {
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: max(24px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+          max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+        background: var(--bg);
+        color: var(--text);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        line-height: 1.5;
+      }
+      main {
+        width: 100%;
+        max-width: 420px;
+        padding: 32px 24px;
+        text-align: center;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        box-shadow: 0 4px 16px -2px rgb(15 23 42 / 0.05), 0 2px 6px -1px rgb(15 23 42 / 0.03);
+      }
+      .logo {
+        display: block;
+        margin: 0 auto;
+        width: 72px;
+        height: 72px;
+        border-radius: 16px;
+      }
+      .badge {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 56px;
+        height: 56px;
+        margin: 20px auto 0;
+        border-radius: 16px;
+        background: var(--icon-bg);
+        color: var(--muted);
+      }
+      h1 {
+        margin: 16px 0 8px;
+        font-size: 24px;
+        line-height: 32px;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 0;
+        color: var(--muted);
+      }
+      button {
+        margin-top: 24px;
+        width: 100%;
+        min-height: 48px;
+        padding: 0 20px;
+        border: 0;
+        border-radius: 16px;
+        background: var(--brand-strong);
+        color: #ffffff;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:hover {
+        background: var(--brand);
+      }
+      button:focus-visible {
+        outline: 3px solid var(--brand);
+        outline-offset: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img class="logo" src="/icons/icon-192.png" alt="Logo ARSENS" width="72" height="72" />
+      <span class="badge" aria-hidden="true">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m2 2 20 20" />
+          <path d="M5.78 5.78A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.31-.19" />
+          <path d="M21.53 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7 7 0 0 0 10 5.07" />
+        </svg>
+      </span>
+      <h1>Você está sem internet</h1>
+      <p>
+        Não foi possível carregar o ARSENS agora. Para ver a qualidade do ar atual, conecte-se à internet e tente
+        novamente.
+      </p>
+      <button type="button" onclick="location.reload()">Tentar novamente</button>
+    </main>
+  </body>
+</html>

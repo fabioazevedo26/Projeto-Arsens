@@ -10,6 +10,9 @@ interface HistoryTableProps {
   feeds: Feed[]; // Mais recentes primeiro
 }
 
+// No celular a tabela começa com as leituras mais recentes; o restante abre com um toque
+const MOBILE_ROWS = 5;
+
 const formatDateTime = (dateString: string) =>
   new Date(dateString).toLocaleString("pt-BR", { timeZone: "America/Manaus" });
 
@@ -27,6 +30,7 @@ const ROW_BADGE: Record<RowStatus, { label: string; icon: IconName; className: s
 
 export default function HistoryTable({ feeds }: HistoryTableProps) {
   const [hideErrors, setHideErrors] = useState(true);
+  const [showAll, setShowAll] = useState(false); // só tem efeito no celular
 
   const rows = feeds.map((feed) => ({ feed, status: getRowStatus(feed) }));
   const errorCount = rows.filter((r) => r.status === "erro").length;
@@ -78,7 +82,7 @@ export default function HistoryTable({ feeds }: HistoryTableProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800 tabular-nums">
-            {visibleRows.map(({ feed, status }) => {
+            {visibleRows.map(({ feed, status }, index) => {
               const co = parseReading(feed.field1);
               const coClass = status === "simulacao" ? "text-violet-700 dark:text-violet-400" : co !== null ? STATUS[coStatusKey(co)].text : "text-slate-400 dark:text-slate-500";
               const badge = ROW_BADGE[status];
@@ -86,7 +90,7 @@ export default function HistoryTable({ feeds }: HistoryTableProps) {
               return (
                 <tr
                   key={feed.entry_id}
-                  className={`transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${status === "erro" ? "bg-amber-50/40 dark:bg-amber-500/5 text-slate-400 dark:text-slate-500" : ""}`}
+                  className={`${!showAll && index >= MOBILE_ROWS ? "hidden md:table-row" : ""} transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${status === "erro" ? "bg-amber-50/40 dark:bg-amber-500/5 text-slate-400 dark:text-slate-500" : ""}`}
                 >
                   <td className="px-5 py-3 whitespace-nowrap text-slate-700 dark:text-slate-300">{formatDateTime(feed.created_at)}</td>
                   <td className={`px-5 py-3 text-right font-bold whitespace-nowrap ${coClass}`}>
@@ -115,7 +119,19 @@ export default function HistoryTable({ feeds }: HistoryTableProps) {
         </table>
       </div>
 
-      <div className="flex flex-col gap-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      {visibleRows.length > MOBILE_ROWS && (
+        <button
+          type="button"
+          onClick={() => setShowAll((v) => !v)}
+          aria-expanded={showAll}
+          className="flex min-h-12 w-full items-center justify-center gap-2 border-t border-slate-100 text-sm font-semibold text-brand-strong md:hidden dark:border-slate-800 dark:text-teal-300"
+        >
+          {showAll ? "Mostrar só as 5 mais recentes" : `Ver todas as ${visibleRows.length} leituras`}
+          <Icon name="chevronDown" className={`h-5 w-5 transition-transform ${showAll ? "rotate-180" : ""}`} />
+        </button>
+      )}
+
+      <div className="flex flex-col gap-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 px-4 py-4 sm:px-5 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-slate-600 dark:text-slate-400">Para pesquisa acadêmica: até 8.000 leituras, com coluna de status.</p>
         <div className="flex flex-col gap-2 sm:flex-row">
           <a

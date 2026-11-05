@@ -2,15 +2,16 @@ import Icon from "./Icon";
 
 export default function SiteFooter() {
   return (
-    <footer className="mt-12 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-      <div className="mx-auto max-w-7xl space-y-4 px-4 py-8 lg:px-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+    // Safe areas: espaço para a barra de gestos do iPhone e para o entalhe na horizontal
+    <footer className="mt-8 md:mt-12 pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+      <div className="mx-auto max-w-7xl space-y-3 px-4 py-5 md:space-y-4 md:py-8 lg:px-8">
+        <div className="flex flex-col gap-3 md:gap-4 md:flex-row md:items-start md:justify-between">
           <div className="max-w-2xl">
             <p className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-50">
               <Icon name="activity" className="h-5 w-5 text-brand" />
               Monitoramento participativo da qualidade do ar
             </p>
-            <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+            <p className="mt-1 hidden text-sm leading-relaxed text-slate-600 md:block dark:text-slate-400">
               Projeto acadêmico ARSENS, na Av. Djalma Batista, em Manaus/AM. Medições com finalidade educativa,
               preventiva e indicativa de saúde pública.
             </p>

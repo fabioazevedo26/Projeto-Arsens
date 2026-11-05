@@ -1,12 +1,21 @@
 "use client";
 
-import { setTheme, useIsDark } from "@/lib/theme";
+import { usePathname } from "next/navigation";
+import { useEffect } from "react";
+import { applyThemeColor, setTheme, useIsDark } from "@/lib/theme";
 import Icon from "./Icon";
 
 // Alterna entre modo claro e escuro. O ícone muda só por CSS (dark:), então aparece certo
 // já no primeiro desenho da página, sem esperar o JavaScript.
 export default function ThemeToggle() {
   const isDark = useIsDark();
+  const pathname = usePathname();
+
+  // Reaplica o theme-color ao trocar de página: a navegação do Next pode recriar a meta tag
+  // com o valor padrão (claro).
+  useEffect(() => {
+    applyThemeColor(isDark);
+  }, [isDark, pathname]);
 
   return (
     <button

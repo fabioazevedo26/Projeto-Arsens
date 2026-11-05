@@ -72,7 +72,7 @@ export default function ChartComponent({ data }: ChartComponentProps) {
 
   return (
     <section className="flex flex-col rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-card lg:col-span-2">
-      <div className="flex flex-col gap-3 border-b border-slate-100 dark:border-slate-800 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-3 sm:px-5 sm:py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-50">Séries temporais das últimas 24 h</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">Médias a cada 10 minutos · horário de Manaus</p>
@@ -99,7 +99,7 @@ export default function ChartComponent({ data }: ChartComponentProps) {
         </div>
       </div>
 
-      <div className="h-72 px-2 py-4 sm:h-80">
+      <div className="h-56 px-1 py-3 sm:h-80 sm:px-2 sm:py-4">
         {data.length === 0 ? (
           <p className="flex h-full items-center justify-center text-sm text-slate-500 dark:text-slate-400">
             Sem leituras válidas nas últimas 24 horas.

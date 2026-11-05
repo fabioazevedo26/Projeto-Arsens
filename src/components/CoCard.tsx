@@ -42,7 +42,7 @@ export default function CoCard({ value, previous, updatedAt, calibrated }: CoCar
   return (
     <section
       aria-label="Nível de monóxido de carbono"
-      className="relative flex flex-col rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-card"
+      className="relative col-span-3 flex flex-col rounded-3xl border sm:col-span-1 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 shadow-card"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
