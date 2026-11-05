@@ -2,7 +2,8 @@ import Icon from "./Icon";
 
 export default function SiteFooter() {
   return (
-    <footer className="mt-12 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+    // Safe areas: espaço para a barra de gestos do iPhone e para o entalhe na horizontal
+    <footer className="mt-12 pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
       <div className="mx-auto max-w-7xl space-y-4 px-4 py-8 lg:px-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="max-w-2xl">

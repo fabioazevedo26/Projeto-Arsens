@@ -44,7 +44,8 @@ function NavTabs({ active, className }: { active: Section; className: string }) 
 
 export default function SiteHeader({ active, live }: SiteHeaderProps) {
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl">
+    // Safe areas: com viewportFit "cover", o conteúdo não fica sob o entalhe nem nas bordas curvas
+    <header className="sticky top-0 z-40 pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 lg:h-20 lg:px-8">
         <Link href="/" className="flex min-w-0 items-center gap-3" aria-label="ARSENS — página inicial">
           <Image src="/logo.png.jpeg" alt="Logo ARSENS" width={44} height={44} className="shrink-0 rounded-lg object-contain" />

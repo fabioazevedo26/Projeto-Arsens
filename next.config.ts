@@ -5,6 +5,19 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [{ source: "/login", destination: "/dashboard", permanent: false }];
   },
+
+  // O service worker nunca pode ficar preso em cache: cada visita confere a versão mais nova.
+  async headers() {
+    return [
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
