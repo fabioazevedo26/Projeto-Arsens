@@ -7,13 +7,13 @@ const COMPONENTS: { title: string; icon: IconName; tone: string; text: string }[
     title: "Sensor MQ-7",
     icon: "activity",
     tone: "bg-teal-50 dark:bg-teal-500/10 text-teal-700 dark:text-teal-300",
-    text: "Responsável por mensurar a concentração de Monóxido de Carbono através de ciclos químicos precisos de aquecimento e estabilização.",
+    text: "Responsável por medir a concentração de Monóxido de Carbono. Trabalha em ciclos de aquecimento: 60 segundos a 5 V para limpar o sensor e 90 segundos a 1,4 V para medir, com a leitura feita no fim de cada ciclo.",
   },
   {
     title: "Sensor BME280",
     icon: "thermometer",
     tone: "bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400",
-    text: "Monitora a temperatura e a umidade relativa do ar em tempo real. Como as condições climáticas de regiões tropicais (como Manaus) afetam a leitura de sensores de gás, desenvolvemos um algoritmo de correção dinâmica que calibra os dados de PPM (Partes por Milhão) de acordo com o clima local.",
+    text: "Monitora a temperatura e a umidade relativa do ar em tempo real. Esses dados são registrados junto com cada leitura de CO porque o clima quente e úmido de Manaus influencia a resposta de sensores de gás como o MQ-7, e ajudam a interpretar as medições, que são indicativas.",
   },
   {
     title: "Conectividade Total",
@@ -58,7 +58,7 @@ export default function SobrePage() {
         <Card icon="lightbulb" title="Nossa Missão">
           <p>
             Nossa missão é democratizar o acesso a sistemas inteligentes de monitoramento ambiental. Utilizando hardware de
-            código aberto e sensores de alta precisão, o Arsens transforma dados brutos da atmosfera em informações claras,
+            código aberto e sensores de baixo custo, o Arsens transforma dados brutos da atmosfera em informações claras,
             acessíveis e acionáveis para o usuário comum.
           </p>
         </Card>

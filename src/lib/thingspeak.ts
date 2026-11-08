@@ -106,10 +106,9 @@ export function bucketFeeds(feeds: Feed[], minutes = 10): ChartPoint[] {
 const TTL_RECENTES = 15;
 // Dia em andamento no gráfico: até 30 s
 const TTL_DIA_ABERTO = 30;
-// Dias que já terminaram não recebem leituras novas: 1 dia (renovado só por segurança)
+// Dias que já terminaram não recebem leituras novas: 1 dia (renovado só por segurança).
+// O download do histórico usa estes mesmos dias (fetchRange), então também aproveita o cache.
 const TTL_DIA_FECHADO = 24 * 60 * 60;
-// Download do histórico (8.000 leituras): até 60 s
-const TTL_EXPORTACAO = 60;
 
 // Executa `load` com cache. Falhas (null) NÃO são guardadas: o erro é lançado dentro da
 // função cacheada (o Next não guarda exceções) e vira null aqui fora.
@@ -136,10 +135,6 @@ export function fetchLatest(n = 20): Promise<Feed[] | null> {
   return cached(["recentes", String(n)], TTL_RECENTES, () => fetchFeeds({ results: String(n) }));
 }
 
-// Últimas 8.000 leituras, para o download do histórico
-export function fetchForExport(): Promise<Feed[] | null> {
-  return cached(["exportacao"], TTL_EXPORTACAO, () => fetchFeeds({ results: String(MAX_RESULTS) }));
-}
 
 // O ThingSpeak devolve no máximo 8.000 leituras por consulta (as mais recentes da janela).
 const MAX_RESULTS = 8000;

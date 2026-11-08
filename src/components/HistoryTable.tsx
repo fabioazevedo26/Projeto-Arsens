@@ -8,6 +8,8 @@ import Icon, { type IconName } from "./Icon";
 
 interface HistoryTableProps {
   feeds: Feed[]; // Mais recentes primeiro
+  exportQuery: string; // período do gráfico na URL (ex.: "periodo=7d"); "" = últimas 24 h
+  periodLabel: string; // ex.: "Últimos 7 dias"
 }
 
 // No celular a tabela começa com as leituras mais recentes; o restante abre com um toque
@@ -28,7 +30,12 @@ const ROW_BADGE: Record<RowStatus, { label: string; icon: IconName; className: s
   simulacao: { label: "Simulação", icon: "play", className: "bg-violet-100 dark:bg-violet-500/20 text-violet-800 dark:text-violet-200" },
 };
 
-export default function HistoryTable({ feeds }: HistoryTableProps) {
+export default function HistoryTable({ feeds, exportQuery, periodLabel }: HistoryTableProps) {
+  // O download leva o mesmo período do gráfico
+  const exportHref = (formato?: string) => {
+    const query = [formato ? `formato=${formato}` : "", exportQuery].filter(Boolean).join("&");
+    return query ? `/dashboard/export?${query}` : "/dashboard/export";
+  };
   const [hideErrors, setHideErrors] = useState(true);
   const [showAll, setShowAll] = useState(false); // só tem efeito no celular
 
@@ -132,10 +139,13 @@ export default function HistoryTable({ feeds }: HistoryTableProps) {
       )}
 
       <div className="flex flex-col gap-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 px-4 py-4 sm:px-5 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-slate-600 dark:text-slate-400">Para pesquisa acadêmica: até 8.000 leituras, com coluna de status.</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          Para pesquisa acadêmica: todas as leituras do período do gráfico (
+          <span className="font-semibold text-slate-700 dark:text-slate-300">{periodLabel}</span>), com coluna de status.
+        </p>
         <div className="flex flex-col gap-2 sm:flex-row">
           <a
-            href="/dashboard/export?formato=padrao"
+            href={exportHref("padrao")}
             download
             className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl border-[1.5px] border-brand-strong dark:border-teal-400 bg-white dark:bg-slate-900 px-4 text-sm font-semibold text-brand-strong dark:text-teal-300 transition-colors hover:bg-teal-50 dark:hover:bg-teal-500/10"
           >
@@ -143,7 +153,7 @@ export default function HistoryTable({ feeds }: HistoryTableProps) {
             CSV padrão (Python/R)
           </a>
           <a
-            href="/dashboard/export"
+            href={exportHref()}
             download
             className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-brand px-4 text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand-strong active:scale-[0.98]"
           >

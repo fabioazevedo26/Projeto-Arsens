@@ -11,7 +11,7 @@ import SiteFooter from "@/components/SiteFooter";
 import SiteHeader from "@/components/SiteHeader";
 import { isSimulation, parseReading } from "@/lib/co";
 import { formatRs } from "@/lib/feed";
-import { parseRange } from "@/lib/period";
+import { parseRange, rangeQuery } from "@/lib/period";
 import { getDashboardData } from "@/lib/thingspeak";
 
 // Sempre renderiza no momento da requisição (dados em tempo real, sem pré-renderização no build).
@@ -173,7 +173,7 @@ export default async function DashboardPage({
         </div>
 
         {/* 3. Histórico + exportação */}
-        <HistoryTable feeds={feeds} />
+        <HistoryTable feeds={feeds} exportQuery={rangeQuery(range)} periodLabel={range.label} />
       </main>
 
       <SiteFooter />

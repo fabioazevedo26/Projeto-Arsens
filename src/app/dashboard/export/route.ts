@@ -1,41 +1,64 @@
 import ExcelJS from "exceljs";
 import { isSimulation, parseReading } from "@/lib/co";
 import { getRowStatus, type Feed, type RowStatus } from "@/lib/feed";
-import { fetchForExport } from "@/lib/thingspeak";
+import { parseRange, type ChartRange } from "@/lib/period";
+import { fetchRange } from "@/lib/thingspeak";
 
 const STATUS_LABEL: Record<RowStatus, string> = { ok: "OK", erro: "Erro", simulacao: "Simulação" };
 
 // Manaus é UTC-4 o ano todo (sem horário de verão).
 const MANAUS_OFFSET_MS = -4 * 60 * 60_000;
 
-// Rota aberta, como o resto do site.
+// "08/11/2026 14:30" no horário de Manaus
+const formatManaus = (ms: number) =>
+  new Date(ms).toLocaleString("pt-BR", {
+    timeZone: "America/Manaus",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+// "AAAA-MM-DD" no calendário de Manaus
+const manausDay = (ms: number) => new Date(ms).toLocaleDateString("sv-SE", { timeZone: "America/Manaus" });
+
+// Rota aberta, como o resto do site. Baixa TODAS as leituras do mesmo período do gráfico,
+// com os mesmos parâmetros e regras da página (src/lib/period.ts):
+// ?periodo=24h|7d|30d|intervalo&inicio=AAAA-MM-DD&fim=AAAA-MM-DD (sem nada = últimas 24 h)
 // ?formato=excel (padrão) -> planilha .xlsx formatada para o Excel
 // ?formato=padrao         -> CSV internacional (",", decimal "."), ideal para Python/R
+// A busca usa o mesmo cache por dia do gráfico (src/lib/thingspeak.ts).
 export async function GET(request: Request) {
-  const formato = new URL(request.url).searchParams.get("formato") === "padrao" ? "padrao" : "excel";
-  const feeds = await fetchForExport(); // com cache de 60 s, compartilhado entre os downloads
+  const params = new URL(request.url).searchParams;
+  const formato = params.get("formato") === "padrao" ? "padrao" : "excel";
+  const range = parseRange(Object.fromEntries(params));
+  const feeds = await fetchRange(range.start, range.end);
 
   if (!feeds) {
     return new Response("Falha ao buscar dados do ThingSpeak.", { status: 502 });
   }
 
-  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Manaus" });
+  const startDay = manausDay(range.start);
+  // O fim do intervalo é a meia-noite do dia seguinte (exclusivo): 1 ms antes é o último dia
+  const endDay = manausDay(range.end - 1);
+  const name = `arsens-historico-${startDay === endDay ? startDay : `${startDay}_a_${endDay}`}`;
 
   if (formato === "padrao") {
     return new Response("﻿" + buildCsv(feeds), {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="arsens-historico-${today}-padrao.csv"`,
+        "Content-Disposition": `attachment; filename="${name}-padrao.csv"`,
         "Cache-Control": "no-store",
       },
     });
   }
 
-  const buffer = await buildWorkbook(feeds).xlsx.writeBuffer();
+  const buffer = await buildWorkbook(feeds, range).xlsx.writeBuffer();
   return new Response(buffer, {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="arsens-historico-${today}.xlsx"`,
+      "Content-Disposition": `attachment; filename="${name}.xlsx"`,
       "Cache-Control": "no-store",
     },
   });
@@ -54,7 +77,7 @@ function buildCsv(feeds: Feed[]): string {
   ].join("\r\n");
 }
 
-function buildWorkbook(feeds: Feed[]): ExcelJS.Workbook {
+function buildWorkbook(feeds: Feed[], range: ChartRange): ExcelJS.Workbook {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "ARSENS";
 
@@ -126,6 +149,8 @@ function buildWorkbook(feeds: Feed[]): ExcelJS.Workbook {
         "calibração em ar limpo. Leituras anteriores a 17/10/2026 não possuem esse campo.",
     ],
     ["Observação", "Leituras do MQ-7 são indicativas, não certificadas."],
+    ["Período", `${range.label} (de ${formatManaus(range.start)} a ${formatManaus(range.end)}, horário de Manaus)`],
+    ["Total de leituras", feeds.length],
   ]);
   info.getColumn(1).font = { bold: true };
   info.getColumn(1).alignment = { vertical: "top" };

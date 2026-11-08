@@ -120,7 +120,6 @@ export default async function HomePage() {
 
         {/* Card-herói: o status é o foco; o valor em ppm fica em segundo plano */}
         <section
-          aria-live="polite"
           className={`grid gap-4 rounded-3xl border p-4 shadow-card sm:gap-5 sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center ${status.soft}`}
         >
           <div className="flex flex-row items-start gap-4 sm:items-center sm:gap-5">
@@ -135,7 +134,14 @@ export default async function HomePage() {
               <span className="inline-flex rounded-full bg-white/80 dark:bg-slate-950/40 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-slate-700 dark:text-slate-300 uppercase sm:px-3 sm:py-1 sm:text-xs">
                 Monóxido de carbono (CO)
               </span>
-              <h2 className={`text-3xl leading-tight font-extrabold tracking-tight sm:text-5xl ${status.text}`}>
+              {/* Só o nome do status é anunciado pelo leitor de tela quando muda (ex.: "Atenção").
+                  O card inteiro não fica em aria-live porque tem o texto "(há X min)", que muda a
+                  cada atualização e faria o card ser lido de novo o tempo todo. */}
+              <h2
+                aria-live="polite"
+                aria-atomic="true"
+                className={`text-3xl leading-tight font-extrabold tracking-tight sm:text-5xl ${status.text}`}
+              >
                 {status.label}
               </h2>
               <p className="max-w-2xl text-base leading-relaxed text-slate-700 dark:text-slate-300 sm:text-lg">{status.advice}</p>

@@ -102,6 +102,16 @@ function presetRange(preset: (typeof PRESETS)[number], now: number): ChartRange 
   return { key: preset.key, start, end: now, label: preset.label };
 }
 
+// Query string que reproduz o período (para links, como o download do histórico).
+// "" = padrão (últimas 24 h).
+export function rangeQuery(range: ChartRange): string {
+  if (range.key === "24h") return "";
+  if (range.key === "intervalo" && range.inicio && range.fim) {
+    return new URLSearchParams({ periodo: "intervalo", inicio: range.inicio, fim: range.fim }).toString();
+  }
+  return `periodo=${range.key}`;
+}
+
 export function formatBucket(minutes: number): string {
   if (minutes < 60) return `${minutes} minutos`;
   if (minutes === 60) return "1 hora";

@@ -82,6 +82,25 @@ Essas variáveis são lidas apenas no servidor e nunca são enviadas ao navegado
 Importante: o painel usa somente a Read API Key. A Write API Key fica apenas no firmware do
 ESP32 e nunca deve ser colocada no painel nem divulgada.
 
+Cabeçalhos de segurança (next.config.ts), enviados em todas as rotas:
+- Content-Security-Policy: o navegador só carrega scripts, estilos, imagens e fontes do
+  próprio site, e só aceita molduras (iframe) do OpenStreetMap, usado no mini-mapa. Se
+  alguém conseguir injetar conteúdo, scripts e imagens de outros endereços são bloqueados.
+  Usa 'unsafe-inline' para scripts porque o script do tema (layout.tsx) e os do Next são
+  inline; a alternativa (nonce) exigiria um Proxy e renderização por requisição em todas
+  as rotas. 'unsafe-eval' só em desenvolvimento. "upgrade-insecure-requests" só na
+  Vercel (no npm start local, em HTTP, ele quebraria a página).
+- frame-ancestors 'none' e X-Frame-Options: DENY: nenhum outro site pode exibir o ARSENS
+  dentro de uma moldura (evita golpes de "clique escondido").
+- X-Content-Type-Options: nosniff: o navegador não "adivinha" o tipo dos arquivos.
+- Referrer-Policy: strict-origin-when-cross-origin: links externos (EPA, OMS, mapa,
+  Telegram) recebem só o domínio do site, não o endereço completo.
+- Permissions-Policy: desliga câmera, microfone, localização, pagamento e USB.
+Se um dia o site passar a carregar algo de outro domínio (ex.: um script de análise de
+acesso), o endereço precisa ser incluído na CSP, senão o navegador bloqueia. Na Vercel, a
+barra de comentários das versões de preview (vercel.live) também fica bloqueada por ela;
+o site publicado não é afetado.
+
 Separação Server x Client Components:
 - Server Components (page.tsx, CoCard, MetricCard, LocationMap, SiteHeader, SiteFooter) rodam no
   servidor: buscam os dados e entregam o HTML pronto, sem enviar JavaScript extra.
@@ -150,9 +169,8 @@ entre todos os visitantes (e, na Vercel, entre as instâncias do servidor):
 
   Consulta                                   Guardada por   Usada em
   Últimas 20 leituras                        15 s           cards, tabela e painel público
-  Dia em andamento (hoje, em UTC)            30 s           gráfico
-  Dia que já terminou                        24 h           gráfico
-  Últimas 8.000 leituras                     60 s           download do histórico
+  Dia em andamento (hoje, em UTC)            30 s           gráfico e download do histórico
+  Dia que já terminou                        24 h           gráfico e download do histórico
 
 - Os dois painéis usam a MESMA consulta das "últimas 20" (o painel público pega a última).
 - Como o gráfico busca por dia, os dias já guardados servem para qualquer período: abrir
@@ -323,7 +341,16 @@ Mapeamento dos campos do ThingSpeak:
       Desligada, elas aparecem com fundo âmbar claro e a etiqueta "Erro".
 
 5.7 Exportação CSV (src/app/dashboard/export/route.ts)
-    Baixa até 8.000 leituras do ThingSpeak, para uso em pesquisas acadêmicas, em dois formatos:
+    Baixa TODAS as leituras do mesmo período escolhido no filtro do gráfico (24 h, semana,
+    mês ou intervalo de até 90 dias), para uso em pesquisas acadêmicas.
+    - Os botões levam o período na URL (ex.: /dashboard/export?periodo=7d) e mudam junto
+      com o filtro. O texto abaixo da tabela mostra qual período será baixado.
+    - A rota usa as mesmas regras de período do gráfico (parseRange em period.ts) e a mesma
+      busca por dia, com cache (fetchRange em thingspeak.ts, item 3). Não há mais o limite
+      de 8.000 leituras.
+    - O nome do arquivo traz as datas: arsens-historico-2026-11-01_a_2026-11-08.xlsx
+      (ou só uma data, se o período for de um dia).
+    Dois formatos:
 
     a) "Baixar Histórico (.xlsx)" — planilha do Excel gerada com a biblioteca "exceljs":
        - Colunas: Data | Hora | CO (ppm) | Temperatura (°C) | Umidade (%) | Rs (Ω) | Status
@@ -335,7 +362,7 @@ Mapeamento dos campos do ThingSpeak:
          inválido fica em branco (999,90 é o botão de teste, não uma medição).
        - Uma segunda aba, "Sobre os dados", traz local, sensores, fuso e o significado dos
          status — útil para citar os dados em trabalhos acadêmicos. Também explica o Rs e a
-         fórmula de conversão para ppm.
+         fórmula de conversão para ppm, e informa o período exportado e o total de leituras.
 
     b) "CSV padrão (Python/R)" — padrão internacional (",", decimal ".") com os dados brutos:
        data_hora_utc, data_hora_manaus, co_ppm, temperatura_c, umidade_pct, rs_ohm, status
@@ -353,6 +380,10 @@ Mapeamento dos campos do ThingSpeak:
       traduzidas para "Qualidade Boa", "Atenção", "Risco Moderado" e "Perigo" (cor + ícone +
       nome, item 7), com uma orientação para quem está no ponto. O valor em ppm fica num card
       lateral menor, com a referência da EPA (9 ppm em 8 h).
+    - Acessibilidade: só o nome do status (ex.: "Atenção") fica em aria-live, então o leitor
+      de tela avisa quando o status muda. O card inteiro não fica em aria-live porque tem o
+      texto "(há X min)", que muda a cada atualização e faria o card ser lido de novo o
+      tempo todo.
     - Cards de temperatura, umidade e situação do sensor (ao vivo / sem sinal).
     - Régua educativa "Como ler o indicador" com as 4 faixas; a faixa atual recebe o selo
       "Nível atual" quando o sensor está calibrado.
@@ -556,12 +587,11 @@ Em produção (Vercel), cadastre as mesmas variáveis em Settings > Environment 
   em ar limpo após 48 h de pré-aquecimento. Abaixo de ~20 ppm as leituras são
   indicativas, por estarem abaixo da faixa especificada do sensor. Os valores
   continuam sendo indicativos, não certificados.
-- Como o site é aberto, qualquer pessoa pode baixar o histórico. A consulta de 8.000
-  leituras fica em cache por 60 s (item 3), então vários downloads seguidos fazem uma só
-  consulta ao ThingSpeak; a planilha, porém, é montada de novo a cada download.
-- O download do histórico (5.7) ainda NÃO segue o filtro do gráfico: continua baixando as
-  últimas 8.000 leituras (cerca de 14 dias). Uma melhoria possível é reaproveitar
-  fetchRange() para baixar exatamente o período escolhido (os dias já estariam em cache).
+- Como o site é aberto, qualquer pessoa pode baixar o histórico. As consultas ao
+  ThingSpeak usam o cache por dia (item 3), mas a planilha é montada de novo a cada
+  download. Um período de 90 dias tem ~52 mil leituras com o envio normal (1 a cada
+  2,5 min); se o botão de teste ficar acionado por muito tempo, o número cresce e a
+  planilha pode demorar a ser gerada.
 - O primeiro acesso a um período longo, com o cache vazio, faz uma consulta por dia (até 91
   para 90 dias, 6 de cada vez). Os acessos seguintes usam o cache (item 3).
 
@@ -577,4 +607,4 @@ RESUMO DO FLUXO
 5. As regras (semáforo, simulação, erro) são aplicadas e a tela é montada.
 6. A cada 15 s as duas páginas se atualizam sozinhas, sem recarregar (e também ao voltar
    para o app ou quando a internet volta).
-7. Pesquisadores podem baixar o histórico completo (.xlsx ou CSV).
+7. Pesquisadores podem baixar todas as leituras do período escolhido no gráfico (.xlsx ou CSV).
