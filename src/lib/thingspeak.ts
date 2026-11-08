@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { isSimulation, parseReading } from "./co";
 import { parseRs, SESSION_GAP_MS, type ChartPoint, type Feed, type Session } from "./feed";
 import { pickBucket, type ChartRange } from "./period";
@@ -89,17 +90,75 @@ export function bucketFeeds(feeds: Feed[], minutes = 10): ChartPoint[] {
   return points;
 }
 
+// ================== CACHE ==================
+// Sem cache, cada visitante faria suas próprias consultas ao ThingSpeak a cada 15 s (e um
+// período de 90 dias, dezenas delas). Com o cache do Next (compartilhado entre todos os
+// visitantes e, na Vercel, entre as instâncias do servidor), o ThingSpeak recebe no máximo
+// uma consulta por chave a cada intervalo, não importa quantas pessoas estejam com o site
+// aberto.
+//
+// unstable_cache foi substituído pela diretiva "use cache" no Next 16, mas ela exige ligar
+// o modo Cache Components (que remove o `export const dynamic` das páginas). No modelo de
+// cache que o projeto usa, unstable_cache continua sendo o caminho para funções que não são
+// um fetch simples. Ele é ignorado se for chamado dentro de outro unstable_cache: não aninhe.
+
+// Leituras recentes (cards, tabela, painel público): até 15 s
+const TTL_RECENTES = 15;
+// Dia em andamento no gráfico: até 30 s
+const TTL_DIA_ABERTO = 30;
+// Dias que já terminaram não recebem leituras novas: 1 dia (renovado só por segurança)
+const TTL_DIA_FECHADO = 24 * 60 * 60;
+// Download do histórico (8.000 leituras): até 60 s
+const TTL_EXPORTACAO = 60;
+
+// Executa `load` com cache. Falhas (null) NÃO são guardadas: o erro é lançado dentro da
+// função cacheada (o Next não guarda exceções) e vira null aqui fora.
+async function cached<T>(key: string[], ttl: number, load: () => Promise<T | null>): Promise<T | null> {
+  try {
+    const run = unstable_cache(
+      async () => {
+        const value = await load();
+        if (value === null) throw new Error("ThingSpeak indisponível");
+        return value;
+      },
+      ["thingspeak", ...key],
+      { revalidate: ttl }
+    );
+    return await run();
+  } catch {
+    return null;
+  }
+}
+
+// Últimas `n` leituras (ordem cronológica). Painel público e técnico usam a MESMA chave
+// (20 leituras), então dividem o cache.
+export function fetchLatest(n = 20): Promise<Feed[] | null> {
+  return cached(["recentes", String(n)], TTL_RECENTES, () => fetchFeeds({ results: String(n) }));
+}
+
+// Últimas 8.000 leituras, para o download do histórico
+export function fetchForExport(): Promise<Feed[] | null> {
+  return cached(["exportacao"], TTL_EXPORTACAO, () => fetchFeeds({ results: String(MAX_RESULTS) }));
+}
+
 // O ThingSpeak devolve no máximo 8.000 leituras por consulta (as mais recentes da janela).
 const MAX_RESULTS = 8000;
-// Janela de cada consulta: ~1 leitura a cada 2,5 min dá ~5.800 leituras em 10 dias.
-const CHUNK_MS = 10 * 24 * 60 * 60_000;
+// O gráfico busca por DIA (UTC): os limites ficam fixos, então a mesma consulta serve para
+// qualquer período e qualquer visitante. No plano gratuito (1 envio a cada 15 s) um dia
+// tem no máximo 5.760 leituras, abaixo do limite de 8.000.
+const DAY_MS = 24 * 60 * 60_000;
+// Um dia só é considerado encerrado 10 min depois da meia-noite UTC (leituras atrasadas)
+const CLOSE_MARGIN_MS = 10 * 60_000;
+// Consultas simultâneas ao ThingSpeak quando o cache está vazio (ex.: primeiro acesso a 90 dias)
+const MAX_PARALLEL = 6;
 // Abaixo disso não divide mais a janela (evita uma cascata de consultas)
 const MIN_SPLIT_MS = 60 * 60_000;
 
 // "AAAA-MM-DD HH:NN:SS" em UTC, formato aceito por start/end do ThingSpeak
 const tsDate = (ms: number) => new Date(ms).toISOString().slice(0, 19).replace("T", " ");
 
-// Busca uma janela; se vier cheia (8.000), divide ao meio para não perder o começo dela.
+// Busca uma janela; se vier cheia (8.000, só possível em planos pagos com envio mais
+// frequente), divide ao meio para não perder o começo dela.
 async function fetchWindow(start: number, end: number, depth = 0): Promise<Feed[] | null> {
   const feeds = await fetchFeeds({
     start: tsDate(start),
@@ -108,23 +167,54 @@ async function fetchWindow(start: number, end: number, depth = 0): Promise<Feed[
     results: String(MAX_RESULTS),
   });
   if (!feeds) return null;
-  if (feeds.length < MAX_RESULTS || end - start <= MIN_SPLIT_MS || depth >= 4) return feeds;
+  if (feeds.length < MAX_RESULTS || end - start <= MIN_SPLIT_MS || depth >= 3) return feeds;
 
   const mid = Math.floor((start + end) / 2);
-  const [a, b] = await Promise.all([fetchWindow(start, mid, depth + 1), fetchWindow(mid, end, depth + 1)]);
+  const [a, b] = await Promise.all([fetchWindow(start, mid, depth + 1), fetchWindow(mid + 1000, end, depth + 1)]);
   return a && b ? [...a, ...b] : null;
 }
 
-// Todas as leituras do período, em ordem cronológica e sem repetição nas emendas das janelas.
-export async function fetchRange(start: number, end: number): Promise<Feed[] | null> {
-  const windows: [number, number][] = [];
-  for (let s = start; s < end; s += CHUNK_MS) windows.push([s, Math.min(s + CHUNK_MS, end)]);
+// Leituras de um dia UTC inteiro (00:00:00 a 23:59:59), com cache: longo se o dia já
+// terminou, curto se ainda está em andamento.
+function fetchDay(dayStart: number, now: number): Promise<Feed[] | null> {
+  const closed = dayStart + DAY_MS + CLOSE_MARGIN_MS <= now;
+  const day = new Date(dayStart).toISOString().slice(0, 10);
+  return cached(["dia", day, closed ? "fechado" : "aberto"], closed ? TTL_DIA_FECHADO : TTL_DIA_ABERTO, () =>
+    fetchWindow(dayStart, dayStart + DAY_MS - 1000)
+  );
+}
 
-  const parts = await Promise.all(windows.map(([s, e]) => fetchWindow(s, e)));
+// Roda as tarefas com no máximo `limit` ao mesmo tempo (não sobrecarrega o ThingSpeak)
+async function runLimited<T>(tasks: (() => Promise<T>)[], limit: number): Promise<T[]> {
+  const results = new Array<T>(tasks.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < tasks.length) {
+      const i = next++;
+      results[i] = await tasks[i]();
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker));
+  return results;
+}
+
+// Todas as leituras do período, em ordem cronológica e sem repetição. Busca os dias (UTC)
+// que o período toca, cada um com cache próprio, e recorta só o intervalo pedido.
+export async function fetchRange(start: number, end: number, now = Date.now()): Promise<Feed[] | null> {
+  const days: number[] = [];
+  for (let d = Math.floor(start / DAY_MS) * DAY_MS; d <= end; d += DAY_MS) days.push(d);
+
+  const parts = await runLimited(
+    days.map((d) => () => fetchDay(d, now)),
+    MAX_PARALLEL
+  );
   if (parts.some((p) => p === null)) return null;
 
   const byId = new Map<number, Feed>();
-  for (const feed of parts.flat() as Feed[]) byId.set(feed.entry_id, feed);
+  for (const feed of parts.flat() as Feed[]) {
+    const t = new Date(feed.created_at).getTime();
+    if (t >= start && t <= end) byId.set(feed.entry_id, feed);
+  }
   return [...byId.values()].sort((a, b) => a.entry_id - b.entry_id);
 }
 
@@ -162,7 +252,7 @@ export function buildSessions(feeds: Feed[], now = Date.now()): Session[] {
 }
 
 export async function getDashboardData(range: ChartRange) {
-  const [latest, period] = await Promise.all([fetchFeeds({ results: "20" }), fetchRange(range.start, range.end)]);
+  const [latest, period] = await Promise.all([fetchLatest(20), fetchRange(range.start, range.end)]);
   const fetchedAt = Date.now();
 
   return {

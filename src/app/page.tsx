@@ -7,7 +7,7 @@ import SiteFooter from "@/components/SiteFooter";
 import SiteHeader from "@/components/SiteHeader";
 import { isSimulation, parseReading } from "@/lib/co";
 import { coStatusKey, SCALE_KEYS, STATUS, type StatusKey } from "@/lib/status-style";
-import { fetchFeeds } from "@/lib/thingspeak";
+import { fetchLatest } from "@/lib/thingspeak";
 
 // Painel público (cidadão). Sempre renderiza no momento da requisição: dados em tempo real.
 export const dynamic = "force-dynamic";
@@ -51,11 +51,11 @@ const formatAge = (ms: number) => {
   return h < 24 ? `há ${h} h` : `há ${Math.floor(h / 24)} dia(s)`;
 };
 
-// O cidadão só precisa da leitura mais recente: buscar 1 resultado mantém a página leve
-// (ela se atualiza a cada 15 s para cada visitante).
+// O cidadão só precisa da leitura mais recente. Usa a mesma busca (com cache de 15 s) das
+// "últimas 20" do painel técnico: os dois painéis dividem uma única consulta ao ThingSpeak.
 async function getLatestReading() {
-  const feeds = await fetchFeeds({ results: "1" });
-  return { latest: feeds?.[0] ?? null, fetchedAt: Date.now() };
+  const feeds = await fetchLatest(20);
+  return { latest: feeds?.at(-1) ?? null, fetchedAt: Date.now() };
 }
 
 function Eyebrow({ children }: { children: React.ReactNode }) {

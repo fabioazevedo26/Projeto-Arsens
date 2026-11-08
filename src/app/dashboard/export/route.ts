@@ -1,19 +1,19 @@
 import ExcelJS from "exceljs";
 import { isSimulation, parseReading } from "@/lib/co";
 import { getRowStatus, type Feed, type RowStatus } from "@/lib/feed";
-import { fetchFeeds } from "@/lib/thingspeak";
+import { fetchForExport } from "@/lib/thingspeak";
 
 const STATUS_LABEL: Record<RowStatus, string> = { ok: "OK", erro: "Erro", simulacao: "Simulação" };
 
 // Manaus é UTC-4 o ano todo (sem horário de verão).
 const MANAUS_OFFSET_MS = -4 * 60 * 60_000;
 
-// Protegida pelo middleware (matcher /dashboard/:path*).
+// Rota aberta, como o resto do site.
 // ?formato=excel (padrão) -> planilha .xlsx formatada para o Excel
 // ?formato=padrao         -> CSV internacional (",", decimal "."), ideal para Python/R
 export async function GET(request: Request) {
   const formato = new URL(request.url).searchParams.get("formato") === "padrao" ? "padrao" : "excel";
-  const feeds = await fetchFeeds({ results: "8000" });
+  const feeds = await fetchForExport(); // com cache de 60 s, compartilhado entre os downloads
 
   if (!feeds) {
     return new Response("Falha ao buscar dados do ThingSpeak.", { status: 502 });

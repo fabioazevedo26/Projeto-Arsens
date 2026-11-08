@@ -131,19 +131,47 @@ Depois, a função "getDashboardData(range)" busca ao mesmo tempo (em paralelo):
   b) As leituras do período escolhido -> usadas no gráfico (função "fetchRange()"). Em
      seguida, "buildSessions()" separa essas leituras em sessões de medição (ver 5.4).
 
-Busca em partes: o ThingSpeak devolve no máximo 8.000 leituras por consulta (as mais
-recentes da janela pedida). Como o ESP32 envia cerca de 1 leitura a cada 2,5 min (~576 por
-dia), "fetchRange()" divide o período em janelas de 10 dias (~5.800 leituras cada) e faz
-uma consulta por janela, usando os parâmetros start/end do ThingSpeak em UTC. Se alguma
-janela voltar "cheia" (8.000, por exemplo com muitos envios do botão de teste), ela é
-dividida ao meio e consultada de novo, para não perder o começo da janela. No fim, as
-leituras são juntadas sem repetição (pelo entry_id) e em ordem cronológica.
-Exemplos: 24 h e semana = 1 consulta; mês = 3 consultas; 90 dias = 9 consultas.
+Busca por dia: o ThingSpeak devolve no máximo 8.000 leituras por consulta (as mais
+recentes da janela pedida). "fetchRange()" busca um DIA (UTC, 00:00:00 a 23:59:59) por
+consulta, usando os parâmetros start/end do ThingSpeak, e depois recorta só o intervalo
+pedido. Um dia tem no máximo 5.760 leituras no plano gratuito (1 envio a cada 15 s), abaixo
+do limite. Se mesmo assim um dia voltar "cheio" (8.000, possível em planos pagos), ele é
+dividido ao meio e consultado de novo. No fim, as leituras são juntadas sem repetição (pelo
+entry_id) e em ordem cronológica. No máximo 6 consultas rodam ao mesmo tempo.
 Se alguma consulta falhar, o gráfico mostra "Não foi possível buscar as leituras deste
 período" e o restante da página continua funcionando.
 
-Todas usam 'cache: "no-store"', ou seja, o Next.js NUNCA guarda esses dados em cache: toda
-atualização busca os dados MAIS RECENTES do ThingSpeak.
+CACHE DAS CONSULTAS AO THINGSPEAK (src/lib/thingspeak.ts)
+Sem cache, cada visitante faria suas próprias consultas a cada atualização de 15 s, e um
+período de 90 dias exigiria dezenas delas. Como o site é aberto, qualquer pessoa poderia
+sobrecarregar o ThingSpeak, que poderia limitar o canal e derrubar o site para todos.
+Por isso as consultas passam pelo cache do Next.js ("unstable_cache"), que é compartilhado
+entre todos os visitantes (e, na Vercel, entre as instâncias do servidor):
+
+  Consulta                                   Guardada por   Usada em
+  Últimas 20 leituras                        15 s           cards, tabela e painel público
+  Dia em andamento (hoje, em UTC)            30 s           gráfico
+  Dia que já terminou                        24 h           gráfico
+  Últimas 8.000 leituras                     60 s           download do histórico
+
+- Os dois painéis usam a MESMA consulta das "últimas 20" (o painel público pega a última).
+- Como o gráfico busca por dia, os dias já guardados servem para qualquer período: abrir
+  "Semana" depois de "Mês" não faz nenhuma consulta nova. Um dia só é considerado encerrado
+  10 min depois da meia-noite UTC, para não perder leituras que chegam atrasadas.
+- Quando o tempo de uma consulta vence, o próximo visitante ainda recebe a versão guardada
+  e o Next busca a nova em segundo plano. Por isso os dados podem ficar até ~30 s atrás do
+  ThingSpeak (as leituras chegam a cada ~2,5 min, então isso não muda o que aparece na
+  prática).
+- Falhas NÃO são guardadas: se o ThingSpeak não responder, a próxima visita tenta de novo.
+- Teste local (dados simulados): o primeiro acesso ao período de 30 dias fez 31 consultas
+  (uma por dia); os acessos seguintes, inclusive ao painel público, não fizeram nenhuma.
+- Por que unstable_cache: no Next.js 16 ele foi substituído pela diretiva "use cache", que
+  exige ligar o modo "Cache Components" e remover o 'export const dynamic' das páginas. No
+  modelo de cache usado pelo projeto, unstable_cache continua sendo o caminho, e ele
+  funciona mesmo com 'dynamic = "force-dynamic"'. Atenção: um unstable_cache chamado dentro
+  de outro é ignorado, então essas funções não devem ser aninhadas.
+- A consulta em si (fetch) continua com 'cache: "no-store"': quem guarda o resultado é o
+  unstable_cache, já convertido e validado.
 
 Mapeamento dos campos do ThingSpeak:
 - field1     -> Nível de CO (PPM)
@@ -317,8 +345,10 @@ Mapeamento dos campos do ThingSpeak:
 
 5.8 Painel público do cidadão (src/app/page.tsx)
     Página inicial do site (rota /), aberta a todos, em tema claro e linguagem simples.
-    - Busca só a leitura mais recente do ThingSpeak (results=1), para ficar leve: a página
-      se atualiza a cada 15 s para cada visitante (componente RefreshButton).
+    - Usa a leitura mais recente, da mesma consulta "últimas 20" do painel técnico (com
+      cache de 15 s, item 3): a página se atualiza a cada 15 s para cada visitante
+      (componente RefreshButton), mas o ThingSpeak recebe no máximo uma consulta nesse
+      intervalo, não importa quantos visitantes estejam com o site aberto.
     - Card-herói com o status do CO, usando as mesmas faixas do painel técnico (co.ts),
       traduzidas para "Qualidade Boa", "Atenção", "Risco Moderado" e "Perigo" (cor + ícone +
       nome, item 7), com uma orientação para quem está no ponto. O valor em ppm fica num card
@@ -526,15 +556,14 @@ Em produção (Vercel), cadastre as mesmas variáveis em Settings > Environment 
   em ar limpo após 48 h de pré-aquecimento. Abaixo de ~20 ppm as leituras são
   indicativas, por estarem abaixo da faixa especificada do sensor. Os valores
   continuam sendo indicativos, não certificados.
-- Como o site é aberto, qualquer pessoa pode baixar o histórico completo. Cada download
-  faz uma consulta de até 8.000 leituras ao ThingSpeak; se o volume de acessos crescer,
-  vale considerar um cache para essa rota.
+- Como o site é aberto, qualquer pessoa pode baixar o histórico. A consulta de 8.000
+  leituras fica em cache por 60 s (item 3), então vários downloads seguidos fazem uma só
+  consulta ao ThingSpeak; a planilha, porém, é montada de novo a cada download.
 - O download do histórico (5.7) ainda NÃO segue o filtro do gráfico: continua baixando as
-  últimas 8.000 leituras. Uma melhoria possível é reaproveitar fetchRange() para baixar
-  exatamente o período escolhido.
-- Períodos longos no gráfico (mês ou intervalo) fazem mais consultas ao ThingSpeak a cada
-  atualização automática de 15 s (até 9 consultas para 90 dias). Se isso pesar, dá para
-  guardar em cache as janelas que já terminaram (elas não mudam mais).
+  últimas 8.000 leituras (cerca de 14 dias). Uma melhoria possível é reaproveitar
+  fetchRange() para baixar exatamente o período escolhido (os dias já estariam em cache).
+- O primeiro acesso a um período longo, com o cache vazio, faz uma consulta por dia (até 91
+  para 90 dias, 6 de cada vez). Os acessos seguintes usam o cache (item 3).
 
 
 RESUMO DO FLUXO
