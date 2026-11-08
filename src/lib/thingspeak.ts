@@ -1,6 +1,6 @@
 import { isSimulation, parseReading } from "./co";
-import { parseRs, type ChartPoint, type Feed } from "./feed";
-import type { ChartRange } from "./period";
+import { parseRs, SESSION_GAP_MS, type ChartPoint, type Feed, type Session } from "./feed";
+import { pickBucket, type ChartRange } from "./period";
 
 interface ThingSpeakResponse {
   channel: {
@@ -128,13 +128,47 @@ export async function fetchRange(start: number, end: number): Promise<Feed[] | n
   return [...byId.values()].sort((a, b) => a.entry_id - b.entry_id);
 }
 
+// Sessão "ao vivo": a última leitura chegou há menos disso (mesmo limite do selo "Ao vivo")
+const LIVE_MS = 5 * 60_000;
+
+// Separa as leituras (em ordem cronológica) em sessões de medição: uma pausa maior que
+// SESSION_GAP_MS começa uma sessão nova. Cada sessão ganha suas próprias médias, com o
+// tamanho escolhido pela duração dela. Devolve da mais recente para a mais antiga.
+export function buildSessions(feeds: Feed[], now = Date.now()): Session[] {
+  const groups: Feed[][] = [];
+  let last = -Infinity;
+  for (const feed of feeds) {
+    const t = new Date(feed.created_at).getTime();
+    if (t - last > SESSION_GAP_MS || groups.length === 0) groups.push([]);
+    groups[groups.length - 1].push(feed);
+    last = t;
+  }
+
+  return groups
+    .map((group) => {
+      const start = new Date(group[0].created_at).getTime();
+      const end = new Date(group[group.length - 1].created_at).getTime();
+      const bucketMinutes = pickBucket(end - start);
+      return {
+        start,
+        end,
+        count: group.length,
+        live: now - end < LIVE_MS,
+        bucketMinutes,
+        points: bucketFeeds(group, bucketMinutes),
+      };
+    })
+    .reverse();
+}
+
 export async function getDashboardData(range: ChartRange) {
   const [latest, period] = await Promise.all([fetchFeeds({ results: "20" }), fetchRange(range.start, range.end)]);
+  const fetchedAt = Date.now();
 
   return {
     feeds: latest ? [...latest].reverse() : null, // Os mais recentes primeiro
-    chart: period ? bucketFeeds(period, range.bucketMinutes) : [],
+    sessions: period ? buildSessions(period, fetchedAt) : [],
     chartFailed: period === null,
-    fetchedAt: Date.now(),
+    fetchedAt,
   };
 }

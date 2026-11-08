@@ -41,7 +41,7 @@ export default async function DashboardPage({
 }) {
   // Período do gráfico vem da URL (?periodo=7d, ?periodo=intervalo&inicio=...&fim=...)
   const range = parseRange(await searchParams);
-  const { feeds, chart, chartFailed, fetchedAt } = await getDashboardData(range);
+  const { feeds, sessions, chartFailed, fetchedAt } = await getDashboardData(range);
 
   if (!feeds) {
     return (
@@ -159,7 +159,7 @@ export default async function DashboardPage({
 
         {/* 2. Gráfico (período escolhido no filtro) + ponto de coleta */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <ChartComponent data={chart} range={range} failed={chartFailed} />
+          <ChartComponent sessions={sessions} range={range} failed={chartFailed} />
           {/* Celular: mapa numa seção que abre com um toque (só carrega ao abrir) */}
           <MobileCollapsible icon="mapPin" eyebrow="Localização" title="Ponto de coleta">
             <p className="text-sm text-slate-500 dark:text-slate-400">Parada de ônibus Atlantic Tower C/B · via de alto tráfego</p>

@@ -12,13 +12,14 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { ChartPoint } from "@/lib/feed";
+import type { Session } from "@/lib/feed";
 import { formatBucket, type ChartRange } from "@/lib/period";
 import ChartPeriodFilter from "./ChartPeriodFilter";
+import SessionList, { formatDuration, sessionDay, sessionHours } from "./SessionList";
 import { useIsDark } from "@/lib/theme";
 
 interface ChartComponentProps {
-  data: ChartPoint[]; // Médias do período escolhido, ordem cronológica
+  sessions: Session[]; // sessões de medição do período, da mais recente para a mais antiga
   range: ChartRange;
   failed?: boolean; // a busca do período no ThingSpeak falhou
 }
@@ -69,10 +70,19 @@ const formatDayHour = (ts: number) => `${formatDay(ts)} ${formatTime(ts)}`;
 const HOUR_MS = 3_600_000;
 const MANAUS_OFFSET_MS = 4 * HOUR_MS; // 00:00 em Manaus = 04:00 UTC
 const TICK_STEPS_H = [12, 24, 48, 96, 168, 336];
+const SHORT_TICK_STEPS_MIN = [5, 10, 15, 30, 60, 120, 180, 360];
 
 function axisFor(start: number, end: number): { ticks?: number[]; format: (ts: number) => string } {
   const hours = (end - start) / HOUR_MS;
-  if (hours <= 36) return { format: formatTime };
+  if (hours <= 36) {
+    // Horários "redondos" (a cada 15 min, 30 min, 1 h...). Manaus é UTC-4 em horas cheias,
+    // então alinhar em UTC dá os mesmos minutos redondos no horário local.
+    const stepMin = SHORT_TICK_STEPS_MIN.find((m) => (hours * 60) / m <= 8) ?? 360;
+    const step = stepMin * 60_000;
+    const ticks: number[] = [];
+    for (let t = Math.ceil(start / step) * step; t <= end; t += step) ticks.push(t);
+    return { ticks, format: formatTime };
+  }
   // Marcas de 12 h só até 2 dias; acima disso, um dia ou mais por marca
   const steps = hours <= 48 ? TICK_STEPS_H : TICK_STEPS_H.slice(1);
   const stepH = steps.find((h) => hours / h <= 8) ?? steps[steps.length - 1];
@@ -91,7 +101,10 @@ const formatDateTime = (ts: number) =>
     minute: "2-digit",
   });
 
-export default function ChartComponent({ data, range, failed = false }: ChartComponentProps) {
+// Sessão muito curta (ex.: 1 leitura): abre o eixo para os pontos não colarem na borda
+const MIN_DOMAIN_MS = 30 * 60_000;
+
+export default function ChartComponent({ sessions, range, failed = false }: ChartComponentProps) {
   const P = useIsDark() ? PALETTE.dark : PALETTE.light;
   const router = useRouter();
   const pathname = usePathname();
@@ -104,7 +117,20 @@ export default function ChartComponent({ data, range, failed = false }: ChartCom
     });
   };
 
-  const axis = axisFor(range.start, range.end);
+  // Sessão escolhida, guardada pelo início: continua a mesma nas atualizações de 15 s.
+  // Se ela sair do período (ou ainda não houver escolha), mostra a mais recente.
+  const [selectedStart, setSelectedStart] = useState<number | null>(null);
+  const session = sessions.find((s) => s.start === selectedStart) ?? sessions[0];
+  const data = session?.points ?? [];
+
+  let domainStart = session?.start ?? range.start;
+  let domainEnd = session?.end ?? range.end;
+  if (domainEnd - domainStart < MIN_DOMAIN_MS) {
+    const mid = (domainStart + domainEnd) / 2;
+    domainStart = mid - MIN_DOMAIN_MS / 2;
+    domainEnd = mid + MIN_DOMAIN_MS / 2;
+  }
+  const axis = axisFor(domainStart, domainEnd);
   const [visible, setVisible] = useState<Record<SeriesKey, boolean>>({ co: true, temp: true, hum: true });
 
   const toggle = (key: SeriesKey) => setVisible((v) => ({ ...v, [key]: !v[key] }));
@@ -117,8 +143,8 @@ export default function ChartComponent({ data, range, failed = false }: ChartCom
           <div>
             <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-50">Séries temporais</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              <span className="font-semibold text-slate-700 dark:text-slate-300">{range.label}</span> · médias a cada{" "}
-              {formatBucket(range.bucketMinutes)} · horário de Manaus
+              <span className="font-semibold text-slate-700 dark:text-slate-300">{range.label}</span> · só os momentos
+              com leitura · horário de Manaus
             </p>
           </div>
           <ChartPeriodFilter range={range} pending={pending} onChange={changePeriod} />
@@ -127,6 +153,10 @@ export default function ChartComponent({ data, range, failed = false }: ChartCom
           <p role="status" className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
             {range.notice}
           </p>
+        )}
+
+        {sessions.length > 0 && (
+          <SessionList sessions={sessions} selected={session.start} onSelect={setSelectedStart} />
         )}
 
         {/* Legenda interativa: liga/desliga cada série */}
@@ -150,6 +180,14 @@ export default function ChartComponent({ data, range, failed = false }: ChartCom
         </div>
       </div>
 
+      {session && (
+        <p className="px-4 pt-3 text-sm text-slate-600 sm:px-5 dark:text-slate-400">
+          Sessão de <span className="font-semibold text-slate-800 dark:text-slate-200">{sessionDay(session)}</span>,{" "}
+          <span className="tabular-nums">{sessionHours(session)}</span> · {formatDuration(session.end - session.start)} ·
+          médias a cada {formatBucket(session.bucketMinutes)}
+        </p>
+      )}
+
       <div className="relative h-56 px-1 py-3 sm:h-80 sm:px-2 sm:py-4" aria-busy={pending}>
         {pending && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 text-sm font-semibold text-slate-700 dark:bg-slate-900/60 dark:text-slate-200">
@@ -160,7 +198,9 @@ export default function ChartComponent({ data, range, failed = false }: ChartCom
           <p className="flex h-full items-center justify-center px-4 text-center text-sm text-slate-500 dark:text-slate-400">
             {failed
               ? "Não foi possível buscar as leituras deste período. Tente novamente em instantes."
-              : `Sem leituras válidas no período (${range.label.toLowerCase()}).`}
+              : sessions.length === 0
+                ? `Nenhuma leitura no período (${range.label.toLowerCase()}).`
+                : "Esta sessão não tem leituras válidas de CO, temperatura ou umidade (só falhas do sensor)."}
           </p>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
@@ -170,7 +210,7 @@ export default function ChartComponent({ data, range, failed = false }: ChartCom
                 dataKey="ts"
                 type="number"
                 scale="time"
-                domain={[range.start, range.end]}
+                domain={[domainStart, domainEnd]}
                 allowDataOverflow
                 ticks={axis.ticks}
                 tickFormatter={axis.format}
@@ -179,6 +219,8 @@ export default function ChartComponent({ data, range, failed = false }: ChartCom
                 tickLine={false}
                 axisLine={{ stroke: P.grid }}
                 minTickGap={32}
+                // Se faltar espaço (celular), pula marcas de forma regular (1 sim, 1 não...)
+                interval="equidistantPreserveStart"
               />
               <YAxis
                 yAxisId="co"
@@ -236,6 +278,8 @@ export default function ChartComponent({ data, range, failed = false }: ChartCom
                   dataKey={key}
                   name={key}
                   hide={!visible[key]}
+                  // Dentro de uma sessão as pausas são curtas (< 30 min): liga os pontos
+                  connectNulls
                   stroke={P.series[key]}
                   strokeWidth={key === "co" ? 2.5 : 1.5}
                   // Só desenha ponto em leituras isoladas (sem vizinhos), que não formam linha

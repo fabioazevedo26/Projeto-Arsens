@@ -18,6 +18,19 @@ export interface ChartPoint {
   hum: number | null;
 }
 
+// Sessão de medição: bloco de leituras seguidas, sem pausa maior que SESSION_GAP_MS.
+export interface Session {
+  start: number; // epoch ms da primeira leitura
+  end: number; // epoch ms da última leitura
+  count: number; // total de leituras recebidas (inclui as com erro)
+  live: boolean; // a sessão ainda está acontecendo (última leitura há menos de 5 min)
+  bucketMinutes: number; // tamanho de cada média no gráfico da sessão
+  points: ChartPoint[]; // médias da sessão, ordem cronológica
+}
+
+// Pausa sem leituras que separa duas sessões (o ESP32 envia ~1 leitura a cada 2,5 min)
+export const SESSION_GAP_MS = 30 * 60_000;
+
 export type RowStatus = "ok" | "erro" | "simulacao";
 
 // Rs é dado de diagnóstico: vazio/inválido vira null, mas NÃO marca a linha como erro.

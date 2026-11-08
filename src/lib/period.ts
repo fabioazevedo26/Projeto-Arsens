@@ -7,7 +7,6 @@ export interface ChartRange {
   key: PeriodKey;
   start: number; // epoch ms
   end: number; // epoch ms
-  bucketMinutes: number; // tamanho de cada média no gráfico
   label: string; // ex.: "Últimos 7 dias"
   inicio?: string; // AAAA-MM-DD (só no intervalo específico)
   fim?: string;
@@ -27,8 +26,9 @@ export const MAX_RANGE_DAYS = 90;
 const MANAUS_OFFSET_MS = 4 * 60 * 60_000;
 const DAY_MS = 24 * 60 * 60_000;
 
-// Tamanhos de média possíveis (min): escolhe o menor que deixa o gráfico com até ~360 pontos.
-const BUCKETS = [10, 30, 60, 120, 240, 360, 720, 1440];
+// Tamanhos de média possíveis (min): escolhe o menor que deixa o gráfico de uma sessão com até
+// ~360 pontos. O ESP32 envia ~1 leitura a cada 2,5 min, então 5 min é o menor útil.
+const BUCKETS = [5, 10, 30, 60, 120, 240, 360, 720, 1440];
 const MAX_POINTS = 360;
 
 export function pickBucket(spanMs: number): number {
@@ -85,7 +85,6 @@ export function parseRange(params: Record<string, string | string[] | undefined>
         key: "intervalo",
         start: startMs,
         end,
-        bucketMinutes: pickBucket(end - startMs),
         label: inicio === fim ? formatDay(inicio) : `${formatDay(inicio)} a ${formatDay(fim)}`,
         inicio,
         fim,
@@ -100,7 +99,7 @@ export function parseRange(params: Record<string, string | string[] | undefined>
 
 function presetRange(preset: (typeof PRESETS)[number], now: number): ChartRange {
   const start = now - preset.hours * 60 * 60_000;
-  return { key: preset.key, start, end: now, bucketMinutes: pickBucket(now - start), label: preset.label };
+  return { key: preset.key, start, end: now, label: preset.label };
 }
 
 export function formatBucket(minutes: number): string {

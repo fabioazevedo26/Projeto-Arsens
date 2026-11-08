@@ -44,6 +44,7 @@ src/
     MetricCard.tsx              -> Cards menores de Temperatura, Umidade e Rs.
     ChartComponent.tsx          -> Gráfico de linhas do período escolhido (Client, Recharts).
     ChartPeriodFilter.tsx       -> Filtro do gráfico: 24 h, semana, mês ou intervalo (Client).
+    SessionList.tsx             -> Lista das sessões de medição do período (Client).
     LocationMap.tsx             -> Mini-mapa com o ponto de coleta (OpenStreetMap).
     HistoryTable.tsx            -> Tabela das últimas 20 leituras + botão de CSV (Client).
   lib/
@@ -52,7 +53,7 @@ src/
     status-style.ts             -> Aparência de cada status do CO (cor + ícone + texto).
     theme.ts / theme-key.ts     -> Modo claro/escuro: troca, memória no navegador e hook useIsDark.
     period.ts                   -> Regras do período do gráfico (leitura da URL, limites, médias).
-    thingspeak.ts               -> Busca no ThingSpeak (em partes) e cálculo das médias do gráfico.
+    thingspeak.ts               -> Busca no ThingSpeak (em partes), sessões e médias do gráfico.
     network.ts                  -> Hook useIsOnline (internet do aparelho).
 public/
   sw.js                         -> Service worker manual (tela offline e ícones; nada de leituras).
@@ -85,7 +86,7 @@ Separação Server x Client Components:
 - Server Components (page.tsx, CoCard, MetricCard, LocationMap, SiteHeader, SiteFooter) rodam no
   servidor: buscam os dados e entregam o HTML pronto, sem enviar JavaScript extra.
 - Client Components (marcados com "use client": ChartComponent, ChartPeriodFilter,
-  HistoryTable, RefreshButton, ThemeToggle)
+  SessionList, HistoryTable, RefreshButton, ThemeToggle)
   rodam no navegador porque precisam de interatividade (gráfico, filtro, chave liga/desliga,
   timer).
 - O código que lê as chaves (lib/thingspeak.ts) só é importado por arquivos de servidor. Os
@@ -127,7 +128,8 @@ Primeiro, a página lê o período do gráfico na URL (função "parseRange()" d
 
 Depois, a função "getDashboardData(range)" busca ao mesmo tempo (em paralelo):
   a) As últimas 20 leituras -> usadas nos cards e na tabela.
-  b) As leituras do período escolhido -> usadas no gráfico (função "fetchRange()").
+  b) As leituras do período escolhido -> usadas no gráfico (função "fetchRange()"). Em
+     seguida, "buildSessions()" separa essas leituras em sessões de medição (ver 5.4).
 
 Busca em partes: o ThingSpeak devolve no máximo 8.000 leituras por consulta (as mais
 recentes da janela pedida). Como o ESP32 envia cerca de 1 leitura a cada 2,5 min (~576 por
@@ -221,8 +223,7 @@ Mapeamento dos campos do ThingSpeak:
         * Atalhos "24 h", "Semana" (últimos 7 dias) e "Mês" (últimos 30 dias).
         * "Intervalo": abre os campos "De" e "Até" (datas no calendário de Manaus) e o botão
           "Aplicar". O dia final entra inteiro (até 23:59, ou até agora se for hoje).
-        * O título mostra o período ("Últimos 7 dias", "03/11/2026 a 06/11/2026"...) e o
-          tamanho das médias.
+        * O título mostra o período ("Últimos 7 dias", "03/11/2026 a 06/11/2026"...).
         * Enquanto o novo período carrega, o gráfico mostra "Carregando período…". A página
           não volta para o topo.
     - O período fica na URL, por exemplo:
@@ -239,20 +240,43 @@ Mapeamento dos campos do ThingSpeak:
         * Data inválida (ex.: 31/02) ou início no futuro: volta para as últimas 24 h, com aviso.
         * No navegador, o filtro já avisa antes de enviar: falta de data, início depois do fim
           ou intervalo acima de 90 dias.
-    - Para ficar leve, o servidor calcula a MÉDIA de cada janela de tempo em vez de enviar
-      milhares de leituras ao navegador. O tamanho da janela é o menor que deixa o gráfico
-      com até ~360 pontos (opções: 10 min, 30 min, 1 h, 2 h, 4 h, 6 h, 12 h e 1 dia):
-        24 h      -> médias de 10 min (144 pontos)
-        Semana    -> médias de 30 min (336 pontos)
-        Mês       -> médias de 2 h (360 pontos)
-        Intervalo -> conforme a duração (ex.: 4 dias = 30 min; 90 dias = 6 h)
-    - Eixo do tempo: até ~1,5 dia mostra horas (ex.: "14:30"). Acima disso, as marcas caem à
+    - SESSÕES DE MEDIÇÃO: o sensor não fica ligado o tempo todo, então mostrar o período
+      inteiro deixava a maior parte do gráfico vazia. Por isso o gráfico mostra uma sessão
+      de cada vez (src/components/SessionList.tsx e buildSessions() em lib/thingspeak.ts):
+        * Sessão = bloco de leituras seguidas. Uma pausa de mais de 30 minutos sem leitura
+          (SESSION_GAP_MS em lib/feed.ts) começa uma sessão nova. Como o ESP32 envia ~1
+          leitura a cada 2,5 min, pausas menores são só atrasos normais de envio.
+        * Abaixo do filtro aparece "N sessões de medição no período" e a lista das sessões,
+          da mais recente para a mais antiga, com dia, horário de início e fim, duração e
+          número de leituras (ex.: "seg 03/11  08:00–17:30   9 h 30 min · 228 leituras").
+          A sessão que ainda está recebendo leituras mostra "agora" no fim e o selo
+          "ao vivo". Sessões que passam da meia-noite mostram a data do fim.
+        * A lista mostra ~3 sessões e rola se houver mais.
+        * Ao abrir, o gráfico mostra a sessão mais recente. Tocar em outra sessão troca o
+          gráfico na hora (os dados de todas já vieram do servidor; não há nova busca).
+        * A escolha fica guardada pelo horário de início, então não se perde na atualização
+          automática de 15 s. Se a sessão escolhida sair do período, volta para a mais recente.
+        * Acima do gráfico, uma linha resume a sessão: "Sessão de seg 03/11, 08:00–17:30 ·
+          9 h 30 min · médias a cada 5 minutos".
+        * O eixo do tempo vai do início ao fim da sessão (sem espaço vazio). Sessões muito
+          curtas (ex.: 1 leitura) ganham um eixo mínimo de 30 min, para o ponto não colar na
+          borda.
+        * Dentro da sessão a linha é contínua (as pausas ali são sempre menores que 30 min).
+          Os longos períodos sem leitura simplesmente não aparecem: ficam entre uma sessão
+          e outra da lista.
+        * Se uma sessão só tiver leituras com falha (0.00), o gráfico avisa que ela não tem
+          leituras válidas.
+    - Para ficar leve, o servidor calcula a MÉDIA de cada janela de tempo dentro da sessão,
+      em vez de enviar milhares de leituras ao navegador. Cada sessão tem o seu tamanho de
+      janela: o menor que deixa o gráfico com até ~360 pontos (opções: 5 min, 10 min,
+      30 min, 1 h, 2 h, 4 h, 6 h, 12 h e 1 dia). Exemplos:
+        sessão de até 30 h -> médias de 5 min
+        sessão de 2 dias   -> médias de 10 min
+        sessão de 7 dias   -> médias de 30 min
+    - Eixo do tempo: até ~1,5 dia mostra horários redondos (a cada 5, 10, 15 ou 30 min, ou
+      1, 2, 3 ou 6 h, com no máximo ~8 marcas; ex.: "14:30"). Acima disso, as marcas caem à
       meia-noite de Manaus: até 2 dias a cada 12 h ("06/11 12:00"); depois, só o dia
       ("06/11"), a cada 1, 2, 4, 7 ou 14 dias, com no máximo ~8 marcas.
-    - O eixo cobre o período inteiro: se o sensor só começou a enviar no meio do período, o
-      começo fica vazio, em vez de o gráfico "esticar" os dados existentes.
-    - Períodos em que o sensor ficou sem enviar dados aparecem como LACUNA (a linha é
-      interrompida), em vez de "ligar os pontos" e inventar medições.
     - A legenda é clicável: cada série pode ser ligada/desligada.
     - Linha tracejada vermelha marca o limite de referência da EPA (9 ppm).
     - Cores: CO em teal (marca), temperatura em laranja e umidade em azul.
