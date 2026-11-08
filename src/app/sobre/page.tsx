@@ -42,7 +42,7 @@ export default function SobrePage() {
     <div className="flex min-h-screen flex-col bg-background text-slate-900 dark:text-slate-50">
       <SiteHeader active="sobre" />
 
-      <main className="mx-auto w-full max-w-4xl flex-1 space-y-6 px-4 py-8 lg:px-8 lg:py-12">
+      <main id="conteudo" tabIndex={-1} className="mx-auto w-full max-w-4xl flex-1 space-y-6 px-4 py-8 lg:px-8 lg:py-12">
         <div>
           <p className="text-xs font-bold tracking-[0.08em] text-brand-strong dark:text-teal-300 uppercase">Ciência cidadã · Manaus</p>
           <h1 className="mt-1 text-3xl font-extrabold tracking-tight sm:text-4xl">Sobre o Projeto Arsens</h1>

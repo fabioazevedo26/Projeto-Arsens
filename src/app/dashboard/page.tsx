@@ -47,7 +47,7 @@ export default async function DashboardPage({
     return (
       <div className="flex min-h-screen flex-col bg-background">
         <SiteHeader active="tecnico" />
-        <main className="flex flex-1 items-center justify-center px-4">
+        <main id="conteudo" tabIndex={-1} className="flex flex-1 items-center justify-center px-4">
           <div className="max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-8 text-center shadow-card">
             <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-500 text-white">
               <Icon name="cloudOff" className="h-7 w-7" />
@@ -115,7 +115,7 @@ export default async function DashboardPage({
         </div>
       </div>
 
-      <main className="mx-auto w-full max-w-7xl flex-1 space-y-4 px-4 py-4 md:space-y-6 md:py-6 lg:px-8 lg:py-8">
+      <main id="conteudo" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 space-y-4 px-4 py-4 md:space-y-6 md:py-6 lg:px-8 lg:py-8">
         {/* 1. Métricas principais */}
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
           <CoCard

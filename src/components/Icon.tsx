@@ -158,6 +158,7 @@ const PATHS = {
       <path d="M22 10v6M6 12.5V16a6 3 0 0 0 12 0v-3.5" />
     </>
   ),
+  pause: <path d="M9 5v14M15 5v14" />,
   plusSquare: (
     <>
       <rect x="3" y="3" width="18" height="18" rx="4" />

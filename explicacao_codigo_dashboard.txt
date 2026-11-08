@@ -339,6 +339,10 @@ Mapeamento dos campos do ThingSpeak:
     - Coluna "Diagnóstico" com etiquetas de ícone + texto: "OK · Válido", "Erro" e "Simulação".
     - Chave "Ocultar leituras com erro" (ligada por padrão): esconde as linhas com 0.00.
       Desligada, elas aparecem com fundo âmbar claro e a etiqueta "Erro".
+    - Leitores de tela: a tabela tem um título próprio (<caption>, invisível na tela), os
+      cabeçalhos são ligados às colunas e a data/hora é o cabeçalho de cada linha. Assim
+      cada valor é lido com o nome da coluna e a hora (ex.: "08/11/2026 15:17, CO (ppm),
+      6.12"). "Temp." é lido como "Temperatura".
 
 5.7 Exportação CSV (src/app/dashboard/export/route.ts)
     Baixa TODAS as leituras do mesmo período escolhido no filtro do gráfico (24 h, semana,
@@ -419,6 +423,11 @@ gráfico fica na URL, então cada atualização busca de novo o mesmo período.
 - Sem internet no aparelho, nenhuma atualização é disparada (ela falharia e o Next
   recarregaria a página inteira); o aviso global de "sem internet" aparece no lugar.
 - Manual: o botão "Atualizar" faz o mesmo na hora; o ícone gira enquanto a atualização ocorre.
+- Pausar: ao lado do "Atualizar" há o botão "Pausar atualização" (vira "Retomar
+  atualização"). Com a pausa ligada, a página não se atualiza sozinha (nem ao voltar para o
+  app), mas o botão "Atualizar" continua funcionando. A pausa vale para todos os botões da
+  página e continua ao navegar entre as páginas do site; ao recarregar a página, volta a
+  atualizar sozinho. Motivo: acessibilidade (item 7.4).
 
 
 7. DESIGN E ESTILOS (TAILWIND CSS)
@@ -445,7 +454,7 @@ forte no ponto de ônibus.
   forte: rótulos pequenos em caixa-alta e valores grandes em negrito.
 - Formas: cantos arredondados de 16 px (botões) e 24 px (cards); selos em formato de pílula.
 - Acessibilidade: botões e links com área de toque de no mínimo 48 px, contraste WCAG AA e
-  ícones em SVG embutido (não dependem de fonte externa).
+  ícones em SVG embutido (não dependem de fonte externa). Ver também 7.4.
 - Layout responsivo: os cards se reorganizam em 1, 2, 3 ou 4 colunas conforme a largura da
   tela; gráfico e mapa ficam lado a lado no computador e empilhados no celular; a tabela
   rola na horizontal em telas estreitas.
@@ -560,6 +569,38 @@ O que muda no celular:
   JavaScript e são lidas corretamente por leitores de tela.
 - No celular existe um segundo botão Atualizar (no card de status); só o primeiro liga o
   timer de 15 s (auto={false} no segundo), para as atualizações não duplicarem.
+
+
+7.4 ACESSIBILIDADE (DEFICIÊNCIA VISUAL E PESSOAS IDOSAS)
+Recursos para quem usa leitor de tela, teclado, ou enxerga pouco. Referências: WCAG 2.2
+nível AA, eMAG (Modelo de Acessibilidade em Governo Eletrônico) e Lei Brasileira de
+Inclusão (Lei 13.146/2015).
+- Link "Pular para o conteúdo" (layout.tsx): é o primeiro item ao apertar Tab. Fica
+  invisível até receber o foco e leva direto ao conteúdo principal (<main id="conteudo">),
+  sem passar pelo cabeçalho e pelas abas a cada página. Leitores de tela sempre o encontram.
+- Foco do teclado bem visível (globals.css): todo elemento focado pelo Tab ganha um
+  contorno de 3 px na cor da marca (teal escuro no tema claro, teal claro no escuro). Só
+  aparece ao usar o teclado, não ao tocar ou clicar.
+- Reduzir movimento (globals.css): se o celular/computador estiver com "Reduzir movimento"
+  ligado (Acessibilidade nas configurações do sistema), as animações param: o piscar do
+  "Perigo" e do "Ao vivo", a seta que pula no aviso de instalação e o giro do botão
+  Atualizar. Ajuda quem tem tontura, enxaqueca ou sensibilidade a luz piscando.
+- Pausar a atualização automática (RefreshButton.tsx, item 6): quem lê devagar ou usa leitor
+  de tela não perde o ponto da leitura quando a página se atualiza (WCAG 2.2.2).
+- Status anunciado: no painel público, o leitor de tela avisa quando o status do ar muda
+  (item 5.8).
+- Tabela legível pelo leitor de tela (item 5.6).
+Detalhe técnico: as regras de foco e de "reduzir movimento" ficam FORA de @layer no
+globals.css. CSS sem camada tem prioridade sobre as classes do Tailwind, então elas valem
+para o site inteiro, inclusive em elementos com "focus:outline-none".
+Próximos passos sugeridos (ainda não implementados):
+  * Botões "A- A A+" para aumentar o texto do site inteiro (exige trocar os tamanhos fixos
+    em pixels, como text-[11px], por tamanhos em rem).
+  * Texto mínimo de 14 px para qualquer informação (hoje há textos de 11 e 12 px).
+  * Resumo do gráfico em texto e botão "Ver os dados em tabela".
+  * Botão "Ouvir" no card do status (leitura em voz alta com a voz do navegador).
+  * Modo alto contraste (botão e também automático com prefers-contrast: more).
+  * Testes com leitores de tela (NVDA, TalkBack, VoiceOver) e com pessoas idosas.
 
 
 8. COMO RODAR LOCALMENTE

@@ -39,3 +39,36 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+/* ================== ACESSIBILIDADE ==================
+   As regras abaixo ficam FORA de @layer de propósito: CSS sem camada tem prioridade sobre as
+   classes do Tailwind (que ficam em @layer utilities). Assim valem para o site inteiro, mesmo
+   em elementos que usam "focus:outline-none" ou animações. */
+
+/* Foco do teclado bem visível: contorno grosso na cor da marca em todo elemento focado pelo
+   teclado (Tab). Não aparece ao clicar com o mouse ou tocar na tela (:focus-visible). */
+:focus-visible {
+  outline: 3px solid var(--color-brand-strong);
+  outline-offset: 3px;
+}
+.dark :focus-visible {
+  outline-color: #5eead4; /* teal-300: contraste alto sobre o fundo escuro */
+}
+/* O <main> recebe o foco do link "Pular para o conteúdo"; contornar a página inteira só atrapalha */
+[tabindex="-1"]:focus-visible {
+  outline: none;
+}
+
+/* "Reduzir movimento" (Configurações do celular/computador > Acessibilidade): desliga o piscar
+   do status "Perigo" e do "Ao vivo", a seta que pula e o giro do botão Atualizar. Ajuda pessoas
+   com tontura, enxaqueca ou sensibilidade a luz piscando. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

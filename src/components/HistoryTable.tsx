@@ -78,14 +78,25 @@ export default function HistoryTable({ feeds, exportQuery, periodLabel }: Histor
 
       <div className="overflow-x-auto">
         <table className="w-full min-w-[700px] border-collapse text-left text-sm">
+          {/* Título da tabela para leitores de tela (visualmente, o título é o h2 acima) */}
+          <caption className="sr-only">
+            Últimas {feeds.length} leituras do sensor, da mais recente para a mais antiga
+            {hideErrors && errorCount > 0 ? `, sem as ${errorCount} leituras com falha` : ""}
+          </caption>
           <thead>
             <tr className="bg-slate-50 dark:bg-slate-800/50 text-[11px] font-bold tracking-[0.08em] text-slate-500 dark:text-slate-400 uppercase">
-              <th className="px-5 py-3">Data / Hora</th>
-              <th className="px-5 py-3 text-right">CO <span className="normal-case">(ppm)</span></th>
-              <th className="px-5 py-3 text-right">Temp. (°C)</th>
-              <th className="px-5 py-3 text-right">Umidade (%)</th>
-              <th className="px-5 py-3 text-right">Rs <span className="normal-case">(kΩ)</span></th>
-              <th className="px-5 py-3">Diagnóstico</th>
+              <th scope="col" className="px-5 py-3">Data / Hora</th>
+              <th scope="col" className="px-5 py-3 text-right">CO <span className="normal-case">(ppm)</span></th>
+              <th scope="col" className="px-5 py-3 text-right">
+                <span aria-hidden="true">Temp.</span>
+                <span className="sr-only">Temperatura</span> (°C)
+              </th>
+              <th scope="col" className="px-5 py-3 text-right">Umidade (%)</th>
+              <th scope="col" className="px-5 py-3 text-right">
+                Rs <span className="normal-case">(kΩ)</span>
+                <span className="sr-only">, resistência do sensor</span>
+              </th>
+              <th scope="col" className="px-5 py-3">Diagnóstico</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800 tabular-nums">
@@ -99,7 +110,10 @@ export default function HistoryTable({ feeds, exportQuery, periodLabel }: Histor
                   key={feed.entry_id}
                   className={`${!showAll && index >= MOBILE_ROWS ? "hidden md:table-row" : ""} transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50 ${status === "erro" ? "bg-amber-50/40 dark:bg-amber-500/5 text-slate-400 dark:text-slate-500" : ""}`}
                 >
-                  <td className="px-5 py-3 whitespace-nowrap text-slate-700 dark:text-slate-300">{formatDateTime(feed.created_at)}</td>
+                  {/* A data/hora é o "título" da linha: o leitor de tela a repete ao ler cada valor */}
+                  <th scope="row" className="px-5 py-3 font-normal whitespace-nowrap text-slate-700 dark:text-slate-300">
+                    {formatDateTime(feed.created_at)}
+                  </th>
                   <td className={`px-5 py-3 text-right font-bold whitespace-nowrap ${coClass}`}>
                     {status === "simulacao" ? "---" : cell(feed.field1)}
                   </td>

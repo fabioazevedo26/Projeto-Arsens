@@ -89,7 +89,7 @@ export default async function HomePage() {
     <div className="flex min-h-screen flex-col bg-background text-slate-900 dark:text-slate-50">
       <SiteHeader active="cidadao" live={{ isLive: !isStale, lastSeen }} />
 
-      <main className="mx-auto w-full max-w-7xl flex-1 space-y-4 px-4 py-4 md:space-y-6 md:py-6 lg:space-y-8 lg:px-8 lg:py-8">
+      <main id="conteudo" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 space-y-4 px-4 py-4 md:space-y-6 md:py-6 lg:space-y-8 lg:px-8 lg:py-8">
         {/* Abertura */}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-1">

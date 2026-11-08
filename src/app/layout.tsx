@@ -46,6 +46,14 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
+        {/* Primeiro item do Tab: leva direto ao conteúdo, sem passar pelo cabeçalho.
+            Invisível até receber o foco do teclado; leitores de tela sempre o encontram. */}
+        <a
+          href="#conteudo"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[60] focus:rounded-xl focus:bg-slate-900 focus:px-4 focus:py-3 focus:text-base focus:font-semibold focus:text-white dark:focus:bg-slate-100 dark:focus:text-slate-900"
+        >
+          Pular para o conteúdo
+        </a>
         {children}
         <NetworkStatus />
         <InstallPrompt />
