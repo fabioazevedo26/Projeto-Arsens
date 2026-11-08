@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import {
   CartesianGrid,
   Line,
@@ -12,10 +13,14 @@ import {
   YAxis,
 } from "recharts";
 import type { ChartPoint } from "@/lib/feed";
+import { formatBucket, type ChartRange } from "@/lib/period";
+import ChartPeriodFilter from "./ChartPeriodFilter";
 import { useIsDark } from "@/lib/theme";
 
 interface ChartComponentProps {
-  data: ChartPoint[]; // Médias de 10 min das últimas 24 h, ordem cronológica
+  data: ChartPoint[]; // Médias do período escolhido, ordem cronológica
+  range: ChartRange;
+  failed?: boolean; // a busca do período no ThingSpeak falhou
 }
 
 type SeriesKey = "co" | "temp" | "hum";
@@ -54,6 +59,29 @@ const PALETTE = {
 const formatTime = (ts: number) =>
   new Date(ts).toLocaleTimeString("pt-BR", { timeZone: "America/Manaus", hour: "2-digit", minute: "2-digit" });
 
+const formatDay = (ts: number) =>
+  new Date(ts).toLocaleDateString("pt-BR", { timeZone: "America/Manaus", day: "2-digit", month: "2-digit" });
+
+const formatDayHour = (ts: number) => `${formatDay(ts)} ${formatTime(ts)}`;
+
+// Eixo X conforme a duração: até ~1,5 dia o Recharts escolhe as horas; acima disso as marcas
+// caem à meia-noite (ou meio-dia) de Manaus, com no máximo ~8 marcas.
+const HOUR_MS = 3_600_000;
+const MANAUS_OFFSET_MS = 4 * HOUR_MS; // 00:00 em Manaus = 04:00 UTC
+const TICK_STEPS_H = [12, 24, 48, 96, 168, 336];
+
+function axisFor(start: number, end: number): { ticks?: number[]; format: (ts: number) => string } {
+  const hours = (end - start) / HOUR_MS;
+  if (hours <= 36) return { format: formatTime };
+  // Marcas de 12 h só até 2 dias; acima disso, um dia ou mais por marca
+  const steps = hours <= 48 ? TICK_STEPS_H : TICK_STEPS_H.slice(1);
+  const stepH = steps.find((h) => hours / h <= 8) ?? steps[steps.length - 1];
+  const step = stepH * HOUR_MS;
+  const ticks: number[] = [];
+  for (let t = Math.ceil((start - MANAUS_OFFSET_MS) / step) * step + MANAUS_OFFSET_MS; t <= end; t += step) ticks.push(t);
+  return { ticks, format: stepH < 24 ? formatDayHour : formatDay };
+}
+
 const formatDateTime = (ts: number) =>
   new Date(ts).toLocaleString("pt-BR", {
     timeZone: "America/Manaus",
@@ -63,8 +91,20 @@ const formatDateTime = (ts: number) =>
     minute: "2-digit",
   });
 
-export default function ChartComponent({ data }: ChartComponentProps) {
+export default function ChartComponent({ data, range, failed = false }: ChartComponentProps) {
   const P = useIsDark() ? PALETTE.dark : PALETTE.light;
+  const router = useRouter();
+  const pathname = usePathname();
+  const [pending, startTransition] = useTransition();
+
+  // Troca o período mudando a URL (o servidor busca os dados de novo), sem rolar a página
+  const changePeriod = (query: string) => {
+    startTransition(() => {
+      router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    });
+  };
+
+  const axis = axisFor(range.start, range.end);
   const [visible, setVisible] = useState<Record<SeriesKey, boolean>>({ co: true, temp: true, hum: true });
 
   const toggle = (key: SeriesKey) => setVisible((v) => ({ ...v, [key]: !v[key] }));
@@ -72,11 +112,22 @@ export default function ChartComponent({ data }: ChartComponentProps) {
 
   return (
     <section className="flex flex-col rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-card lg:col-span-2">
-      <div className="flex flex-col gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-3 sm:px-5 sm:py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-50">Séries temporais das últimas 24 h</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Médias a cada 10 minutos · horário de Manaus</p>
+      <div className="flex flex-col gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-3 sm:px-5 sm:py-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-50">Séries temporais</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              <span className="font-semibold text-slate-700 dark:text-slate-300">{range.label}</span> · médias a cada{" "}
+              {formatBucket(range.bucketMinutes)} · horário de Manaus
+            </p>
+          </div>
+          <ChartPeriodFilter range={range} pending={pending} onChange={changePeriod} />
         </div>
+        {range.notice && (
+          <p role="status" className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
+            {range.notice}
+          </p>
+        )}
 
         {/* Legenda interativa: liga/desliga cada série */}
         <div className="flex flex-wrap gap-2" role="group" aria-label="Séries do gráfico">
@@ -99,10 +150,17 @@ export default function ChartComponent({ data }: ChartComponentProps) {
         </div>
       </div>
 
-      <div className="h-56 px-1 py-3 sm:h-80 sm:px-2 sm:py-4">
+      <div className="relative h-56 px-1 py-3 sm:h-80 sm:px-2 sm:py-4" aria-busy={pending}>
+        {pending && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 text-sm font-semibold text-slate-700 dark:bg-slate-900/60 dark:text-slate-200">
+            Carregando período…
+          </div>
+        )}
         {data.length === 0 ? (
-          <p className="flex h-full items-center justify-center text-sm text-slate-500 dark:text-slate-400">
-            Sem leituras válidas nas últimas 24 horas.
+          <p className="flex h-full items-center justify-center px-4 text-center text-sm text-slate-500 dark:text-slate-400">
+            {failed
+              ? "Não foi possível buscar as leituras deste período. Tente novamente em instantes."
+              : `Sem leituras válidas no período (${range.label.toLowerCase()}).`}
           </p>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
@@ -112,8 +170,10 @@ export default function ChartComponent({ data }: ChartComponentProps) {
                 dataKey="ts"
                 type="number"
                 scale="time"
-                domain={["dataMin", "dataMax"]}
-                tickFormatter={formatTime}
+                domain={[range.start, range.end]}
+                allowDataOverflow
+                ticks={axis.ticks}
+                tickFormatter={axis.format}
                 stroke={P.axis}
                 tick={{ fill: P.axis, fontSize: 12 }}
                 tickLine={false}

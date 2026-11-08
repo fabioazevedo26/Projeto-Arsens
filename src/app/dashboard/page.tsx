@@ -11,6 +11,7 @@ import SiteFooter from "@/components/SiteFooter";
 import SiteHeader from "@/components/SiteHeader";
 import { isSimulation, parseReading } from "@/lib/co";
 import { formatRs } from "@/lib/feed";
+import { parseRange } from "@/lib/period";
 import { getDashboardData } from "@/lib/thingspeak";
 
 // Sempre renderiza no momento da requisição (dados em tempo real, sem pré-renderização no build).
@@ -33,8 +34,14 @@ const formatAge = (ms: number) => {
   return h < 24 ? `há ${h} h` : `há ${Math.floor(h / 24)} d`;
 };
 
-export default async function DashboardPage() {
-  const { feeds, chart, fetchedAt } = await getDashboardData();
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  // Período do gráfico vem da URL (?periodo=7d, ?periodo=intervalo&inicio=...&fim=...)
+  const range = parseRange(await searchParams);
+  const { feeds, chart, chartFailed, fetchedAt } = await getDashboardData(range);
 
   if (!feeds) {
     return (
@@ -150,9 +157,9 @@ export default async function DashboardPage() {
           />
         </div>
 
-        {/* 2. Gráfico 24 h + ponto de coleta */}
+        {/* 2. Gráfico (período escolhido no filtro) + ponto de coleta */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <ChartComponent data={chart} />
+          <ChartComponent data={chart} range={range} failed={chartFailed} />
           {/* Celular: mapa numa seção que abre com um toque (só carrega ao abrir) */}
           <MobileCollapsible icon="mapPin" eyebrow="Localização" title="Ponto de coleta">
             <p className="text-sm text-slate-500 dark:text-slate-400">Parada de ônibus Atlantic Tower C/B · via de alto tráfego</p>

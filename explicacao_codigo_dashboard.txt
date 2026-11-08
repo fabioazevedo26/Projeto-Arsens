@@ -42,7 +42,8 @@ src/
     MobileCollapsible.tsx       -> Seção que abre com um toque, só no celular (<details>).
     CoCard.tsx                  -> Card principal do Nível de CO (semáforo, tendência, simulação).
     MetricCard.tsx              -> Cards menores de Temperatura, Umidade e Rs.
-    ChartComponent.tsx          -> Gráfico de linhas das últimas 24 h (Client, Recharts).
+    ChartComponent.tsx          -> Gráfico de linhas do período escolhido (Client, Recharts).
+    ChartPeriodFilter.tsx       -> Filtro do gráfico: 24 h, semana, mês ou intervalo (Client).
     LocationMap.tsx             -> Mini-mapa com o ponto de coleta (OpenStreetMap).
     HistoryTable.tsx            -> Tabela das últimas 20 leituras + botão de CSV (Client).
   lib/
@@ -50,7 +51,8 @@ src/
     feed.ts                     -> Tipos dos dados e regra de status de cada linha.
     status-style.ts             -> Aparência de cada status do CO (cor + ícone + texto).
     theme.ts / theme-key.ts     -> Modo claro/escuro: troca, memória no navegador e hook useIsDark.
-    thingspeak.ts               -> Busca no ThingSpeak e cálculo das médias do gráfico.
+    period.ts                   -> Regras do período do gráfico (leitura da URL, limites, médias).
+    thingspeak.ts               -> Busca no ThingSpeak (em partes) e cálculo das médias do gráfico.
     network.ts                  -> Hook useIsOnline (internet do aparelho).
 public/
   sw.js                         -> Service worker manual (tela offline e ícones; nada de leituras).
@@ -82,11 +84,13 @@ ESP32 e nunca deve ser colocada no painel nem divulgada.
 Separação Server x Client Components:
 - Server Components (page.tsx, CoCard, MetricCard, LocationMap, SiteHeader, SiteFooter) rodam no
   servidor: buscam os dados e entregam o HTML pronto, sem enviar JavaScript extra.
-- Client Components (marcados com "use client": ChartComponent, HistoryTable, RefreshButton,
-  ThemeToggle)
-  rodam no navegador porque precisam de interatividade (gráfico, chave liga/desliga, timer).
+- Client Components (marcados com "use client": ChartComponent, ChartPeriodFilter,
+  HistoryTable, RefreshButton, ThemeToggle)
+  rodam no navegador porque precisam de interatividade (gráfico, filtro, chave liga/desliga,
+  timer).
 - O código que lê as chaves (lib/thingspeak.ts) só é importado por arquivos de servidor. Os
-  componentes do navegador importam apenas lib/feed.ts e lib/co.ts, que não têm segredos.
+  componentes do navegador importam apenas lib/feed.ts, lib/co.ts e lib/period.ts, que não
+  têm segredos.
 
 
 2. ACESSO AOS PAINÉIS
@@ -113,16 +117,30 @@ chegam ao navegador, mesmo com o site aberto.
 -----------------------------
 - Arquivo: src/app/dashboard/page.tsx
 - Arquivo: src/lib/thingspeak.ts
+- Arquivo: src/lib/period.ts
 
 * Como funciona:
 A página principal é um "Server Component": carrega os dados ANTES de enviar o HTML pronto.
 
-Ao ser acessada, a função "getDashboardData()" faz DUAS requisições ao ThingSpeak ao mesmo
-tempo (em paralelo):
-  a) As últimas 20 leituras -> usadas nos cards e na tabela.
-  b) As leituras das últimas 24 horas -> usadas no gráfico.
+Primeiro, a página lê o período do gráfico na URL (função "parseRange()" de period.ts, ver
+5.4). Sem nada na URL, o período é "últimas 24 h".
 
-Ambas usam 'cache: "no-store"', ou seja, o Next.js NUNCA guarda esses dados em cache: toda
+Depois, a função "getDashboardData(range)" busca ao mesmo tempo (em paralelo):
+  a) As últimas 20 leituras -> usadas nos cards e na tabela.
+  b) As leituras do período escolhido -> usadas no gráfico (função "fetchRange()").
+
+Busca em partes: o ThingSpeak devolve no máximo 8.000 leituras por consulta (as mais
+recentes da janela pedida). Como o ESP32 envia cerca de 1 leitura a cada 2,5 min (~576 por
+dia), "fetchRange()" divide o período em janelas de 10 dias (~5.800 leituras cada) e faz
+uma consulta por janela, usando os parâmetros start/end do ThingSpeak em UTC. Se alguma
+janela voltar "cheia" (8.000, por exemplo com muitos envios do botão de teste), ela é
+dividida ao meio e consultada de novo, para não perder o começo da janela. No fim, as
+leituras são juntadas sem repetição (pelo entry_id) e em ordem cronológica.
+Exemplos: 24 h e semana = 1 consulta; mês = 3 consultas; 90 dias = 9 consultas.
+Se alguma consulta falhar, o gráfico mostra "Não foi possível buscar as leituras deste
+período" e o restante da página continua funcionando.
+
+Todas usam 'cache: "no-store"', ou seja, o Next.js NUNCA guarda esses dados em cache: toda
 atualização busca os dados MAIS RECENTES do ThingSpeak.
 
 Mapeamento dos campos do ThingSpeak:
@@ -196,11 +214,43 @@ Mapeamento dos campos do ThingSpeak:
     a partir de 1.000 Ω em kΩ com 1 casa decimal (ex.: "21,7 kΩ"); sem valor, "—".
     Os 4 cards ficam em 1 coluna no celular, 2×2 no tablet e lado a lado no computador.
 
-5.4 Gráfico das últimas 24 h (src/components/ChartComponent.tsx)
+5.4 Gráfico de séries temporais (src/components/ChartComponent.tsx)
     - Mostra CO, Temperatura e Umidade juntos. O CO usa o eixo da esquerda (ppm); temperatura e
       umidade usam o eixo da direita (0 a 100).
-    - Para ficar leve, o servidor calcula a MÉDIA de cada janela de 10 minutos (no máximo
-      144 pontos por dia) em vez de enviar milhares de leituras ao navegador.
+    - Filtro de período (src/components/ChartPeriodFilter.tsx), no cabeçalho do gráfico:
+        * Atalhos "24 h", "Semana" (últimos 7 dias) e "Mês" (últimos 30 dias).
+        * "Intervalo": abre os campos "De" e "Até" (datas no calendário de Manaus) e o botão
+          "Aplicar". O dia final entra inteiro (até 23:59, ou até agora se for hoje).
+        * O título mostra o período ("Últimos 7 dias", "03/11/2026 a 06/11/2026"...) e o
+          tamanho das médias.
+        * Enquanto o novo período carrega, o gráfico mostra "Carregando período…". A página
+          não volta para o topo.
+    - O período fica na URL, por exemplo:
+        /dashboard                                   -> últimas 24 h (padrão)
+        /dashboard?periodo=7d                        -> últimos 7 dias
+        /dashboard?periodo=30d                       -> últimos 30 dias
+        /dashboard?periodo=intervalo&inicio=2026-11-03&fim=2026-11-06
+      Assim dá para recarregar ou compartilhar o link com o mesmo filtro, e a atualização
+      automática de 15 s (item 6) mantém o período escolhido.
+    - Regras do intervalo (src/lib/period.ts), conferidas no servidor:
+        * Máximo de 90 dias. Se pedirem mais, o gráfico mostra os 90 dias finais e um aviso
+          amarelo ("O intervalo máximo é de 90 dias: mostrando a partir de ...").
+        * Datas invertidas (início depois do fim) são trocadas sozinhas.
+        * Data inválida (ex.: 31/02) ou início no futuro: volta para as últimas 24 h, com aviso.
+        * No navegador, o filtro já avisa antes de enviar: falta de data, início depois do fim
+          ou intervalo acima de 90 dias.
+    - Para ficar leve, o servidor calcula a MÉDIA de cada janela de tempo em vez de enviar
+      milhares de leituras ao navegador. O tamanho da janela é o menor que deixa o gráfico
+      com até ~360 pontos (opções: 10 min, 30 min, 1 h, 2 h, 4 h, 6 h, 12 h e 1 dia):
+        24 h      -> médias de 10 min (144 pontos)
+        Semana    -> médias de 30 min (336 pontos)
+        Mês       -> médias de 2 h (360 pontos)
+        Intervalo -> conforme a duração (ex.: 4 dias = 30 min; 90 dias = 6 h)
+    - Eixo do tempo: até ~1,5 dia mostra horas (ex.: "14:30"). Acima disso, as marcas caem à
+      meia-noite de Manaus: até 2 dias a cada 12 h ("06/11 12:00"); depois, só o dia
+      ("06/11"), a cada 1, 2, 4, 7 ou 14 dias, com no máximo ~8 marcas.
+    - O eixo cobre o período inteiro: se o sensor só começou a enviar no meio do período, o
+      começo fica vazio, em vez de o gráfico "esticar" os dados existentes.
     - Períodos em que o sensor ficou sem enviar dados aparecem como LACUNA (a linha é
       interrompida), em vez de "ligar os pontos" e inventar medições.
     - A legenda é clicável: cada série pode ser ligada/desligada.
@@ -273,7 +323,8 @@ Mapeamento dos campos do ThingSpeak:
 * Como funciona:
 O componente usa a função "router.refresh()" do Next.js, que pede ao servidor para rodar de
 novo a busca no ThingSpeak e atualizar a página SEM recarregá-la (sem piscar a tela e sem
-perder o estado, como a chave da tabela ou as séries escolhidas no gráfico).
+perder o estado, como a chave da tabela ou as séries escolhidas no gráfico). O período do
+gráfico fica na URL, então cada atualização busca de novo o mesmo período.
 
 - Automática: um "useEffect" cria um timer que chama router.refresh() a cada 15 segundos.
   Para economizar requisições, a atualização só acontece com a aba visível.
@@ -357,10 +408,21 @@ Regra principal: o app NUNCA mostra uma leitura antiga como se fosse atual.
 - Aviso "Você está sem internet. As leituras podem estar desatualizadas.": aparece no rodapé
   quando o APARELHO perde a internet. É diferente do selo "Ao vivo" / "Sem sinal" do
   cabeçalho, que continua indicando se o ESP32 está enviando leituras.
-- Aviso de instalação: discreto, no rodapé, com botão de fechar (a escolha fica salva no
-  navegador, chave "arsens-install-dismissed"). No Android e navegadores compatíveis tem o
-  botão "Instalar"; no iPhone/iPad mostra o passo a passo Compartilhar > Adicionar à Tela de
-  Início. Não aparece se o app já estiver instalado nem sem internet.
+- Aviso de instalação (src/components/pwa/InstallPrompt.tsx): discreto, no rodapé, com botão
+  de fechar (a escolha fica salva no navegador, chave "arsens-install-dismissed"). Não
+  aparece se o app já estiver instalado nem sem internet.
+    * Android e navegadores compatíveis: botão "Instalar" (evento beforeinstallprompt).
+    * iPhone/iPad: o iOS não permite que um site abra a instalação sozinho. Por isso o aviso
+      mostra um passo a passo numerado que usa o botão Compartilhar DO NAVEGADOR:
+      1) Compartilhar na barra do Safari (ou antes em "···", nas versões que escondem o botão),
+      2) "Adicionar à Tela de Início", 3) "Adicionar". Os nomes dos botões aparecem como selos
+      cinza, só ilustrativos: não são clicáveis, para ninguém tocar neles esperando que
+      instalem. No celular, uma seta animada aponta para a barra do Safari.
+    * Chrome, Edge ou Firefox no iPhone: mesmos passos, avisando para abrir no Safari se a
+      opção "Adicionar à Tela de Início" não aparecer.
+    * Navegador embutido de outros apps (Instagram, Facebook, TikTok...): ali não existe
+      "Adicionar à Tela de Início". O aviso explica isso e tem o botão "Copiar link" para colar
+      no Safari; se o aparelho bloquear a cópia, o link aparece na tela para copiar à mão.
 - Tela cheia: viewport-fit=cover, com o cabeçalho e o rodapé respeitando as safe areas
   (entalhe e barra de gestos). A barra do sistema (theme-color) acompanha o tema real:
   #F8FAFC no claro e #020617 no escuro, inclusive ao usar o botão sol/lua.
@@ -376,7 +438,8 @@ Como testar o PWA no computador:
    tela offline. Desmarcar "Offline" e clicar em "Tentar novamente": a página volta.
 Como testar no celular (precisa do site publicado com HTTPS, ex.: na Vercel):
 - Android (Chrome): abrir o site, tocar em "Instalar" no aviso ou no menu ⋮ > Instalar app.
-- iPhone (Safari): Compartilhar > Adicionar à Tela de Início.
+- iPhone (Safari): botão Compartilhar da barra do Safari > Adicionar à Tela de Início >
+  Adicionar (o ícone que aparece dentro do aviso é só ilustração).
 - Abrir pelo ícone, conferir o tema, as bordas da tela e o modo avião (aviso + tela offline).
 
 
@@ -442,6 +505,12 @@ Em produção (Vercel), cadastre as mesmas variáveis em Settings > Environment 
 - Como o site é aberto, qualquer pessoa pode baixar o histórico completo. Cada download
   faz uma consulta de até 8.000 leituras ao ThingSpeak; se o volume de acessos crescer,
   vale considerar um cache para essa rota.
+- O download do histórico (5.7) ainda NÃO segue o filtro do gráfico: continua baixando as
+  últimas 8.000 leituras. Uma melhoria possível é reaproveitar fetchRange() para baixar
+  exatamente o período escolhido.
+- Períodos longos no gráfico (mês ou intervalo) fazem mais consultas ao ThingSpeak a cada
+  atualização automática de 15 s (até 9 consultas para 90 dias). Se isso pesar, dá para
+  guardar em cache as janelas que já terminaram (elas não mudam mais).
 
 
 RESUMO DO FLUXO
@@ -449,7 +518,9 @@ RESUMO DO FLUXO
 1. O ESP32 mede CO, temperatura e umidade e envia ao ThingSpeak.
 2. O cidadão abre o site (/) e vê o status do ar em linguagem simples.
 3. O pesquisador clica em "Acesso para Pesquisadores" e abre o /dashboard (sem login).
-4. O dashboard/page.tsx busca no ThingSpeak, no servidor, as últimas 20 leituras e as 24 h.
+4. O dashboard/page.tsx lê o período do gráfico na URL e busca no ThingSpeak, no servidor,
+   as últimas 20 leituras e as leituras do período (24 h por padrão; semana, mês ou um
+   intervalo de até 90 dias pelo filtro do gráfico).
 5. As regras (semáforo, simulação, erro) são aplicadas e a tela é montada.
 6. A cada 15 s as duas páginas se atualizam sozinhas, sem recarregar (e também ao voltar
    para o app ou quando a internet volta).

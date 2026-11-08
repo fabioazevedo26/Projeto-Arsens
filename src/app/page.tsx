@@ -384,7 +384,7 @@ export default async function HomePage() {
             <div>
               <p className="font-semibold">Dados abertos para pesquisa</p>
               <p className="mt-1 hidden max-w-2xl text-sm leading-relaxed text-slate-600 md:block dark:text-slate-400">
-                O painel técnico mostra o histórico de 24 horas, a tabela de leituras e permite baixar os dados em planilha
+                O painel técnico mostra o histórico em gráfico (24 horas, semana, mês ou um intervalo de datas), a tabela de leituras e permite baixar os dados em planilha
                 (.xlsx) ou CSV. A página se atualiza sozinha a cada 15 segundos.
               </p>
             </div>
