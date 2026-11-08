@@ -12,7 +12,12 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-type Env = "server" | "installed" | "dismissed" | "ios" | "other";
+// iOS: "ios-safari" (Safari), "ios-browser" (Chrome, Edge, Firefox...) e "ios-inapp"
+// (navegador embutido de Instagram, Facebook etc., onde não dá para adicionar à tela de início)
+type Env = "server" | "installed" | "dismissed" | "ios-safari" | "ios-browser" | "ios-inapp" | "other";
+
+const IN_APP_UA = /FBAN|FBAV|FB_IAB|Instagram|LinkedInApp|Line\/|Twitter|TikTok|musical_ly|Snapchat|Pinterest|GSA\//;
+const OTHER_BROWSER_UA = /CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|YaBrowser|DuckDuckGo/;
 
 function readEnv(): Env {
   const standalone =
@@ -27,20 +32,26 @@ function readEnv(): Env {
   // iPadOS se apresenta como "MacIntel", mas tem tela de toque
   const isIOS =
     /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  return isIOS ? "ios" : "other";
+  if (!isIOS) return "other";
+  const ua = navigator.userAgent;
+  if (IN_APP_UA.test(ua)) return "ios-inapp";
+  if (OTHER_BROWSER_UA.test(ua)) return "ios-browser";
+  return "ios-safari";
 }
 
 const noopSubscribe = () => () => {};
 
 // Aviso discreto e dispensável para instalar o ARSENS na tela inicial.
 // Android e navegadores compatíveis: botão "Instalar" (beforeinstallprompt).
-// iPhone/iPad: passo a passo Compartilhar > Adicionar à Tela de Início.
+// iPhone/iPad: o iOS não deixa o site abrir a instalação, então mostramos o passo a passo
+// usando o botão Compartilhar DO NAVEGADOR (o ícone aqui é só ilustração, não é clicável).
 // Não aparece se o app já estiver instalado, se o aviso foi dispensado ou sem internet.
 export default function InstallPrompt() {
   const env = useSyncExternalStore(noopSubscribe, readEnv, (): Env => "server");
   const isOnline = useIsOnline();
   const [canPrompt, setCanPrompt] = useState(false);
   const [hidden, setHidden] = useState(false);
+  const [copied, setCopied] = useState<"idle" | "ok" | "fail">("idle");
   const deferred = useRef<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
@@ -79,7 +90,18 @@ export default function InstallPrompt() {
     setHidden(true); // o navegador só permite pedir uma vez por evento
   };
 
-  const isIOS = env === "ios";
+  // No navegador embutido de outros apps não há "Adicionar à Tela de Início":
+  // copiar o link facilita colar no Safari.
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.origin);
+      setCopied("ok");
+    } catch {
+      setCopied("fail"); // sem permissão: mostramos o link para copiar à mão
+    }
+  };
+
+  const isIOS = env === "ios-safari" || env === "ios-browser" || env === "ios-inapp";
   if (hidden || !isOnline || env === "server" || env === "installed" || env === "dismissed") return null;
   if (!isIOS && !canPrompt) return null;
 
@@ -95,12 +117,7 @@ export default function InstallPrompt() {
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-slate-900 dark:text-slate-50">Instale o ARSENS</p>
           {isIOS ? (
-            <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-              Toque em <strong className="inline-flex items-center gap-1 text-slate-800 dark:text-slate-200">
-                Compartilhar <Icon name="share" className="h-4 w-4" />
-              </strong>{" "}
-              e depois em <strong className="text-slate-800 dark:text-slate-200">Adicionar à Tela de Início</strong>.
-            </p>
+            <IosSteps env={env} copied={copied} onCopy={copyLink} />
           ) : (
             <>
               <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
@@ -127,5 +144,90 @@ export default function InstallPrompt() {
         </button>
       </div>
     </aside>
+  );
+}
+
+// Selo que imita o botão do navegador. É <span> de propósito: não é clicável e não deve parecer.
+function Badge({ icon, label }: { icon: "share" | "more" | "plusSquare"; label?: string }) {
+  return (
+    <span className="mx-0.5 inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-slate-100 px-1.5 py-0.5 align-middle text-[0.8125rem] font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-100">
+      <Icon name={icon} className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
+      {label && <span>{label}</span>}
+    </span>
+  );
+}
+
+function IosSteps({ env, copied, onCopy }: { env: Env; copied: "idle" | "ok" | "fail"; onCopy: () => void }) {
+  const stepClass = "flex gap-2";
+  const numClass =
+    "flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal-50 text-xs font-bold text-brand-strong dark:bg-teal-500/10 dark:text-teal-300";
+
+  if (env === "ios-inapp") {
+    return (
+      <>
+        <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+          Este navegador (dentro de outro app) não permite instalar. Abra o site no <strong>Safari</strong>: toque em{" "}
+          <Badge icon="more" /> e em <strong>Abrir no navegador</strong>, ou copie o link e cole no Safari.
+        </p>
+        <button
+          type="button"
+          onClick={onCopy}
+          className="mt-3 inline-flex min-h-12 items-center gap-2 rounded-2xl bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-strong"
+        >
+          <Icon name={copied === "ok" ? "checkCircle" : "copy"} className="h-4 w-4" />
+          {copied === "ok" ? "Link copiado" : "Copiar link"}
+        </button>
+        {copied === "fail" && (
+          <p className="mt-2 select-all break-all rounded-lg bg-slate-100 px-2 py-1 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100">
+            {window.location.origin}
+          </p>
+        )}
+      </>
+    );
+  }
+
+  const where =
+    env === "ios-safari" ? (
+      <>
+        na barra do <strong>Safari</strong> (se não aparecer, toque antes em <Badge icon="more" />)
+      </>
+    ) : (
+      <>
+        no menu do navegador (se o passo 2 não aparecer, abra no <strong>Safari</strong>)
+      </>
+    );
+
+  return (
+    <>
+      <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+        No iPhone a instalação é feita pelo navegador:
+      </p>
+      <ol className="mt-2 space-y-1.5 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+        <li className={stepClass}>
+          <span className={numClass}>1</span>
+          <span>
+            Toque em <Badge icon="share" label="Compartilhar" /> {where}
+          </span>
+        </li>
+        <li className={stepClass}>
+          <span className={numClass}>2</span>
+          <span>
+            Toque em <Badge icon="plusSquare" label="Adicionar à Tela de Início" />
+          </span>
+        </li>
+        <li className={stepClass}>
+          <span className={numClass}>3</span>
+          <span>
+            Confirme em <strong className="text-slate-800 dark:text-slate-200">Adicionar</strong>
+          </span>
+        </li>
+      </ol>
+      {env === "ios-safari" && (
+        <Icon
+          name="chevronDown"
+          className="mx-auto mt-1 h-5 w-5 animate-bounce text-brand motion-reduce:animate-none sm:hidden"
+        />
+      )}
+    </>
   );
 }
