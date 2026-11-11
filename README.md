@@ -36,10 +36,10 @@ painel web aberto: uma versão simples para o cidadão e uma versão técnica pa
 | | |
 |---|---|
 | **Título** | ARSENS — Monitoramento de Monóxido de Carbono com IoT |
-| **Instituição** | _[preencher]_ |
-| **Curso** | _[preencher]_ |
-| **Orientador(a)** | _[preencher]_ |
-| **Integrantes** | Fábio Azevedo, _[preencher os demais]_ |
+| **Instituição** | Uninorte |
+| **Curso** | Engenharia da Computação |
+| **Orientador** | Raul Batalha |
+| **Integrantes** | David Itamar, Fábio Azevedo e João Guilherme |
 | **Ano** | 2026 |
 | **Painel publicado** | <https://projeto-arsens-kappa.vercel.app/> |
 
@@ -314,6 +314,13 @@ acessibilidade e pontos de atenção) está em
 
 ## Autoria
 
-Projeto desenvolvido como Trabalho de Conclusão de Curso por **Fábio Azevedo**
-([@fabioazevedo26](https://github.com/fabioazevedo26)) e equipe, _[preencher instituição e curso]_,
-Manaus/AM, 2026.
+Projeto desenvolvido como Trabalho de Conclusão de Curso de **Engenharia da Computação** na
+**Uninorte**, em Manaus/AM, 2026.
+
+| Integrantes |
+|---|
+| David Itamar |
+| Fábio Azevedo ([@fabioazevedo26](https://github.com/fabioazevedo26)) |
+| João Guilherme ([@JoaoGuilhermePinho](https://github.com/JoaoGuilhermePinho)) |
+
+**Orientador:** Raul Batalha
