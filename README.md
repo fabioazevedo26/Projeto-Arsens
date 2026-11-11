@@ -117,16 +117,31 @@ flowchart LR
 
 ## Hardware
 
+### Controle e sensores
+
 | Componente | Função |
 |---|---|
 | **ESP32** | Microcontrolador com Wi-Fi: lê os sensores, calcula o CO e envia os dados |
 | **Módulo MQ-7** | Sensor de monóxido de carbono |
 | **BME280** | Sensor de temperatura e umidade (I²C, endereço 0x76) |
 | **MOSFET IRLZ44N** | Controla o aquecimento do MQ-7 por PWM (5 V / 1,4 V) |
-| **Regulador LM2596** | Fornece os 5 V do circuito |
 | **Divisor de tensão 10 kΩ / 20 kΩ** | Adapta a saída do MQ-7 à faixa do ADC do ESP32 |
 | **Botão KY-004** | Botão de teste (simula um alerta) e entrada no modo calibração |
-| **Protoboard 830 pontos** | Montagem do protótipo |
+
+### Alimentação
+
+| Componente | Função |
+|---|---|
+| **2 baterias de lítio 3,7 V em série** | Fonte de energia do protótipo (7,4 V nominais), sem depender de tomada no ponto de ônibus |
+| **Placa de proteção BMS 2S 20 A** | Carrega e protege as duas baterias: equilibra as células e corta a energia em caso de sobrecarga, descarga excessiva ou curto-circuito |
+| **Regulador LM2596** | Reduz a tensão das baterias para os 5 V usados pelo circuito |
+
+### Montagem
+
+| Componente | Função |
+|---|---|
+| **Placa de fenolite 10 × 15 cm** | Placa definitiva do circuito, com as ligações soldadas |
+| **Barras de pinos fêmea** | Encaixe do ESP32 na placa: ele pode ser retirado para gravar o firmware ou ser trocado sem dessoldar nada |
 
 **Ligações principais:** MOSFET no GPIO 32, saída analógica do MQ-7 no GPIO 34, botão no GPIO 25.
 
