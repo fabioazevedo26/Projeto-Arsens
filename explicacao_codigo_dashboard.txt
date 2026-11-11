@@ -286,6 +286,9 @@ Mapeamento dos campos do ThingSpeak:
         * Data inválida (ex.: 31/02) ou início no futuro: volta para as últimas 24 h, com aviso.
         * No navegador, o filtro já avisa antes de enviar: falta de data, início depois do fim
           ou intervalo acima de 90 dias.
+        * Leituras até 17/10/2026 (firmware antigo, inválidas; ver item 9) nunca aparecem.
+          Se o período escolhido começar antes disso, um aviso amarelo explica que elas foram
+          deixadas de fora, e o calendário do intervalo começa em 18/10/2026.
     - SESSÕES DE MEDIÇÃO: o sensor não fica ligado o tempo todo, então mostrar o período
       inteiro deixava a maior parte do gráfico vazia. Por isso o gráfico mostra uma sessão
       de cada vez (src/components/SessionList.tsx e buildSessions() em lib/thingspeak.ts):
@@ -618,7 +621,12 @@ Em produção (Vercel), cadastre as mesmas variáveis em Settings > Environment 
 
 9. PONTOS DE ATENÇÃO E MELHORIAS FUTURAS
 ----------------------------------------
-- Calibração do MQ-7: as leituras anteriores a 17/10/2026 (~440 ppm) são inválidas.
+- Calibração do MQ-7: as leituras até 17/10/2026, inclusive (CO entre ~420 e ~510 ppm, sem
+  Rs), são inválidas e NÃO aparecem no painel (gráfico, cards, tabela e download). Nos
+  dados do canal, a última leitura do firmware antigo é de 17/10/2026 às 17:05 e a primeira
+  do firmware corrigido, já com Rs, é de 30/10/2026. O corte fica à 00:00 de 18/10/2026
+  (horário de Manaus), no intervalo sem dados entre as duas (VALID_FROM_MS em
+  src/lib/feed.ts). As leituras continuam guardadas no ThingSpeak; só não são exibidas.
   O ADC do ESP32 estava configurado com atenuação de 0 dB e saturava no valor máximo,
   e a conversão para ppm era linear. O firmware foi corrigido: atenuação de 11 dB,
   cálculo da resistência do sensor (Rs = RL × (Vc − V_A0) / V_A0, com RL efetivo

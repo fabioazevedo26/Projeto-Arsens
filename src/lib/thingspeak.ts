@@ -1,6 +1,6 @@
 import { unstable_cache } from "next/cache";
 import { isSimulation, parseReading } from "./co";
-import { parseRs, SESSION_GAP_MS, type ChartPoint, type Feed, type Session } from "./feed";
+import { isValidPeriod, parseRs, SESSION_GAP_MS, VALID_FROM_MS, type ChartPoint, type Feed, type Session } from "./feed";
 import { pickBucket, type ChartRange } from "./period";
 
 interface ThingSpeakResponse {
@@ -131,8 +131,10 @@ async function cached<T>(key: string[], ttl: number, load: () => Promise<T | nul
 
 // Últimas `n` leituras (ordem cronológica). Painel público e técnico usam a MESMA chave
 // (20 leituras), então dividem o cache.
-export function fetchLatest(n = 20): Promise<Feed[] | null> {
-  return cached(["recentes", String(n)], TTL_RECENTES, () => fetchFeeds({ results: String(n) }));
+// Leituras do firmware antigo (antes de VALID_FROM_MS) ficam de fora.
+export async function fetchLatest(n = 20): Promise<Feed[] | null> {
+  const feeds = await cached(["recentes", String(n)], TTL_RECENTES, () => fetchFeeds({ results: String(n) }));
+  return feeds ? feeds.filter(isValidPeriod) : null;
 }
 
 
@@ -196,6 +198,10 @@ async function runLimited<T>(tasks: (() => Promise<T>)[], limit: number): Promis
 // Todas as leituras do período, em ordem cronológica e sem repetição. Busca os dias (UTC)
 // que o período toca, cada um com cache próprio, e recorta só o intervalo pedido.
 export async function fetchRange(start: number, end: number, now = Date.now()): Promise<Feed[] | null> {
+  // Leituras do firmware antigo (antes de VALID_FROM_MS) ficam de fora: nem são buscadas
+  start = Math.max(start, VALID_FROM_MS);
+  if (start > end) return [];
+
   const days: number[] = [];
   for (let d = Math.floor(start / DAY_MS) * DAY_MS; d <= end; d += DAY_MS) days.push(d);
 

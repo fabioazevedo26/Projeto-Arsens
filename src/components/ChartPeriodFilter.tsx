@@ -3,6 +3,9 @@
 import { useState, type FormEvent } from "react";
 import { MAX_RANGE_DAYS, PRESETS, todayInManaus, type ChartRange } from "@/lib/period";
 
+// Primeiro dia com leituras válidas (antes disso, firmware antigo: ver VALID_FROM_MS em feed.ts)
+const MIN_DATE = "2026-10-18";
+
 interface ChartPeriodFilterProps {
   range: ChartRange;
   pending: boolean;
@@ -80,6 +83,7 @@ export default function ChartPeriodFilter({ range, pending, onChange }: ChartPer
             <input
               type="date"
               value={inicio}
+              min={MIN_DATE}
               max={fim || today}
               onChange={(e) => setInicio(e.target.value)}
               className="min-h-10 rounded-xl border border-slate-300 bg-white px-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:[color-scheme:dark]"
@@ -90,7 +94,7 @@ export default function ChartPeriodFilter({ range, pending, onChange }: ChartPer
             <input
               type="date"
               value={fim}
-              min={inicio || undefined}
+              min={inicio || MIN_DATE}
               max={today}
               onChange={(e) => setFim(e.target.value)}
               className="min-h-10 rounded-xl border border-slate-300 bg-white px-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:[color-scheme:dark]"

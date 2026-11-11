@@ -1,5 +1,6 @@
 // Período do gráfico do painel técnico (?periodo=24h|7d|30d|intervalo&inicio=AAAA-MM-DD&fim=AAAA-MM-DD).
 // Sem dependências de servidor: usado pela página (servidor) e pelo filtro (navegador).
+import { VALID_FROM_LABEL, VALID_FROM_MS } from "./feed";
 
 export type PeriodKey = "24h" | "7d" | "30d" | "intervalo";
 
@@ -56,7 +57,17 @@ function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
+// Aviso quando o período alcança as leituras inválidas do firmware antigo (feed.ts), que não
+// aparecem no painel: assim ninguém acha que os dados sumiram.
+export const OLD_DATA_NOTICE = `Leituras até ${VALID_FROM_LABEL} não aparecem: vieram do firmware antigo, com erro de medição.`;
+
 export function parseRange(params: Record<string, string | string[] | undefined>, now = Date.now()): ChartRange {
+  const range = parseRangeBase(params, now);
+  if (range.start >= VALID_FROM_MS) return range;
+  return { ...range, notice: range.notice ? `${range.notice} ${OLD_DATA_NOTICE}` : OLD_DATA_NOTICE };
+}
+
+function parseRangeBase(params: Record<string, string | string[] | undefined>, now: number): ChartRange {
   const periodo = first(params.periodo);
   const preset = PRESETS.find((p) => p.key === periodo) ?? PRESETS[0];
 

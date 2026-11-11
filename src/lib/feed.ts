@@ -28,6 +28,18 @@ export interface Session {
   points: ChartPoint[]; // médias da sessão, ordem cronológica
 }
 
+// Leituras do firmware antigo são INVÁLIDAS e ficam fora do painel (gráfico, cards, tabela e
+// download). O ADC do ESP32 estava com atenuação de 0 dB e saturava (CO entre ~420 e ~510 ppm,
+// sem o campo Rs). Nos dados do canal, a última leitura do firmware antigo é de 17/10/2026
+// às 17:05 e a primeira do firmware corrigido (já com Rs) é de 30/10/2026: o corte fica no
+// meio desse intervalo sem dados, à 00:00 de 18/10/2026 em Manaus (04:00 UTC).
+export const VALID_FROM_MS = Date.UTC(2026, 9, 18, 4);
+export const VALID_FROM_LABEL = "17/10/2026";
+
+export function isValidPeriod(feed: Pick<Feed, "created_at">): boolean {
+  return new Date(feed.created_at).getTime() >= VALID_FROM_MS;
+}
+
 // Pausa sem leituras que separa duas sessões (o ESP32 envia ~1 leitura a cada 2,5 min)
 export const SESSION_GAP_MS = 30 * 60_000;
 

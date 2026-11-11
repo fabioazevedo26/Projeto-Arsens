@@ -1,7 +1,7 @@
 import ExcelJS from "exceljs";
 import { isSimulation, parseReading } from "@/lib/co";
 import { getRowStatus, type Feed, type RowStatus } from "@/lib/feed";
-import { parseRange, type ChartRange } from "@/lib/period";
+import { OLD_DATA_NOTICE, parseRange, type ChartRange } from "@/lib/period";
 import { fetchRange } from "@/lib/thingspeak";
 
 const STATUS_LABEL: Record<RowStatus, string> = { ok: "OK", erro: "Erro", simulacao: "Simulação" };
@@ -146,11 +146,12 @@ function buildWorkbook(feeds: Feed[], range: ChartRange): ExcelJS.Workbook {
       "Rs (Ω)",
       "Resistência do elemento sensor do MQ-7 medida no fim da fase de 1,4 V. É o dado bruto usado no " +
         "cálculo do ppm: PPM = 99,042 × (Rs/R0)^−1,518, onde R0 é a resistência de referência obtida por " +
-        "calibração em ar limpo. Leituras anteriores a 17/10/2026 não possuem esse campo.",
+        "calibração em ar limpo.",
     ],
     ["Observação", "Leituras do MQ-7 são indicativas, não certificadas."],
     ["Período", `${range.label} (de ${formatManaus(range.start)} a ${formatManaus(range.end)}, horário de Manaus)`],
     ["Total de leituras", feeds.length],
+    ["Leituras excluídas", OLD_DATA_NOTICE + " Esses valores (cerca de 420 a 510 ppm, sem Rs) não entram no arquivo."],
   ]);
   info.getColumn(1).font = { bold: true };
   info.getColumn(1).alignment = { vertical: "top" };
